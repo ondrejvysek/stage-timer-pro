@@ -52,7 +52,6 @@ curl -sSL https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/refs/hea
 * Downloads offline fallback fonts for smooth text rendering without internet.  
 * Configures an automatic Fallback Wi-Fi Hotspot (StageTimer\_AP).  
 * Automates console Autologin (required for the display kiosk).  
-* Rotates the HDMI output to Portrait mode and sets it to 720p.  
 * Downloads this repository and installs dependencies.  
 * Creates and starts the background systemd services so the timer boots automatically forever.
 
