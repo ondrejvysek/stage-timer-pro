@@ -12,7 +12,7 @@ USER_UID=$(id -u)
 
 echo -e "\n[1/6] Updating system and installing dependencies..."
 sudo apt update
-sudo apt install -y git nodejs npm chromium cage network-manager yarn fonts-dejavu fonts-liberation fonts-roboto
+sudo apt install -y git nodejs npm chromium cage network-manager fonts-dejavu fonts-liberation fonts-roboto
 
 echo -e "\n[2/6] Configuring Auto-Fallback Wi-Fi Hotspot..."
 sudo nmcli connection delete "StageTimer_Fallback" 2>/dev/null
