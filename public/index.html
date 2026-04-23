@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Moderator Control | Stage Timer Pro</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --border: #334155;
+            --text: #f8fafc; --text-dim: #94a3b8; --blue: #2563eb;
+            --green: #16a34a; --amber: #d97706; --red: #dc2626;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 30px; }
+        @media (min-width: 1024px) { .grid { grid-template-columns: 1.5fr 1fr; } }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 25px; }
+        h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); margin: 0 0 15px 0; }
+        
+        .monitor { aspect-ratio: 16/9; background: #000; border-radius: 15px; position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid #000; }
+        .monitor-time { font-family: monospace; font-size: 80px; font-weight: 900; color: #22c55e; }
+        
+        .msg-preview { margin-top: 15px; padding: 15px; border-radius: 12px; background: rgba(0,0,0,0.3); border-left: 4px solid var(--border); }
+        .msg-status-badge { float: right; font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: 900; }
+        .status-live { background: var(--red); color: white; animation: pulse 1.5s infinite; }
+        .status-off { background: #334155; color: var(--text-dim); }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { border: none; border-radius: 15px; cursor: pointer; font-weight: 900; padding: 20px; color: #fff; transition: all 0.2s; }
+        .btn:active { transform: scale(0.95); }
+        .btn-start { background: var(--green); height: 120px; font-size: 18px; letter-spacing: 1px; }
+        .btn-pause { background: var(--amber); height: 120px; font-size: 18px; letter-spacing: 1px; }
+        .btn-reset { background: #475569; height: 120px; font-size: 18px; letter-spacing: 1px; }
+        .btn-blue { background: rgba(37, 99, 235, 0.1); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); padding: 15px; cursor: pointer; transition: all 0.2s; }
+        .btn-blue:hover { background: rgba(37, 99, 235, 0.2); }
+        .btn-dim { background: #334155; color: #94a3b8; padding: 15px; }
+
+        .btn-toggle { height: 60px; width: 100%; margin-top: 10px; border-radius: 12px; }
+        .btn-toggle-on { background: var(--red); }
+        .btn-toggle-off { background: var(--blue); }
+
+        .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .preset-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .preset-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+        
+        .btn-preset { background: rgba(71, 85, 105, 0.4); border: 1px solid transparent; padding: 15px; border-radius: 12px; color: #fff; font-weight: 900; cursor: pointer; transition: all 0.2s; }
+        .btn-preset:hover { background: rgba(71, 85, 105, 0.6); }
+
+        /* Nicer Styling specifically for the editable message bank buttons */
+        .btn-msg-bank {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid #334155;
+            padding: 15px 15px 15px 40px; /* Room for number badge */
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            text-align: left;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-msg-bank:hover {
+            border-color: #60a5fa;
+            background: linear-gradient(145deg, #1e293b, #1e293b);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+        .msg-number-badge {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #334155;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 4px 6px;
+            border-radius: 6px;
+        }
+
+        .custom-time-row { display: flex; gap: 10px; align-items: stretch; }
+        .input-compact, .msg-input { background: #0f172a; border: 1px solid #334155; border-radius: 12px; color: #fff; padding: 15px; font-weight: 700; outline: none; font-size: 14px; transition: border-color 0.2s;}
+        .input-compact { flex: 1; }
+        .msg-input { width: 100%; margin-bottom: 10px; }
+        .input-compact:focus, .msg-input:focus { border-color: var(--blue); }
+
+        .btn-set { background: var(--blue); padding: 0 25px; border-radius: 12px; border: none; color: #fff; font-weight: 900; cursor: pointer; font-size: 12px; letter-spacing: 1px; }
+        
+        .ip-badge { background: #1e293b; padding: 8px 15px; border-radius: 8px; font-family: monospace; border: 1px solid #334155; font-size: 14px; color: #60a5fa;}
+        .btn-header-danger { background: rgba(220, 38, 38, 0.1); color: var(--red); border: 1px solid rgba(220, 38, 38, 0.3); padding: 8px 15px; border-radius: 8px; font-weight: 900; font-size: 12px; cursor: pointer; margin-left: 10px; letter-spacing: 1px; transition: all 0.2s; }
+        .btn-header-danger:hover { background: rgba(220, 38, 38, 0.2); }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: var(--card); border: 1px solid var(--border);
+            padding: 30px; border-radius: 24px; max-width: 400px; text-align: center;
+            transform: translateY(20px); transition: transform 0.2s;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .modal-title { color: var(--red); font-size: 20px; font-weight: 900; letter-spacing: 2px; margin-top: 0; margin-bottom: 15px; }
+        .modal-text { color: var(--text-dim); line-height: 1.5; margin-bottom: 25px; }
+
+        .hidden { display: none; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="restart-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title">SYSTEM RESTART</h3>
+            <p class="modal-text">Are you sure you want to restart the Stage Timer service? The timer will be interrupted and the presenter screen will briefly go blank.</p>
+            <div class="btn-grid">
+                <button onclick="closeRestartModal()" class="btn btn-dim" style="height: auto; padding: 15px;">CANCEL</button>
+                <button onclick="confirmRestart()" class="btn btn-toggle-on" style="height: auto; padding: 15px;">RESTART</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
+            <div style="display: flex; align-items: center;">
+                <div class="ip-badge" id="ip-display">Connecting...</div>
+                <button onclick="openRestartModal()" class="btn-header-danger">RESTART</button>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="side-left">
+                <section class="card" style="margin-bottom: 20px;">
+                    <h2>Live Monitor</h2>
+                    <div id="m-frame" class="monitor">
+                        <div id="m-time" class="monitor-time">10:00</div>
+                    </div>
+                    <div class="msg-preview">
+                        <span id="msg-badge" class="msg-status-badge status-off">OFF AIR</span>
+                        <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 5px;">MESSAGE PREVIEW</div>
+                        <div id="msg-preview-text" style="font-weight: 700; font-style: italic;">No message set</div>
+                    </div>
+                </section>
+                
+                <section class="card" style="margin-bottom: 20px;">
+                    <h2>Display Mode</h2>
+                    <div class="preset-grid cols-4" style="margin-bottom: 0;">
+                        <button onclick="api('mode', '?set=countdown')" class="btn-preset" id="mode-countdown">Countdown</button>
+                        <button onclick="api('mode', '?set=countup')" class="btn-preset" id="mode-countup">Count-Up</button>
+                        <button onclick="api('mode', '?set=timeofday')" class="btn-preset" id="mode-timeofday">Time of Day</button>
+                        <button onclick="api('mode', '?set=logo')" class="btn-preset" id="mode-logo">Idle / Logo</button>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>Quick Presets & Custom</h2>
+                    <div class="preset-grid">
+                        <button onclick="api('reset',60)" class="btn-preset">1m</button>
+                        <button onclick="api('reset',300)" class="btn-preset">5m</button>
+                        <button onclick="api('reset',600)" class="btn-preset" style="color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.3);">10m</button>
+                        <button onclick="api('reset',900)" class="btn-preset">15m</button>
+                        <button onclick="api('reset',1800)" class="btn-preset">30m</button>
+                        <button onclick="api('reset',3600)" class="btn-preset">60m</button>
+                    </div>
+                    <div class="custom-time-row">
+                        <input type="number" id="custom-min" placeholder="Set Minutes..." class="input-compact">
+                        <button onclick="setCustomTime()" class="btn-set">SET TIME</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="side-right">
+                <section class="card" style="margin-bottom: 20px;">
+                    <h2>Transport Controls</h2>
+                    <div class="btn-grid">
+                        <button id="b-start" onclick="api('start')" class="btn btn-start">START</button>
+                        <button id="b-pause" onclick="api('pause')" class="btn btn-pause hidden">PAUSE</button>
+                        <button onclick="api('reset')" class="btn btn-reset">RESET</button>
+                        <button onclick="api('add',60)" class="btn btn-blue">+1 MIN</button>
+                        <button onclick="api('add',-60)" class="btn btn-dim">-1 MIN</button>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2>Messaging Control</h2>
+                    <input type="text" id="minput" placeholder="Enter custom message..." class="msg-input" oninput="updateMsgText()">
+                    <button id="btn-toggle" onclick="api('message/toggle')" class="btn btn-toggle btn-toggle-off" style="margin-bottom: 20px;">SHOW MESSAGE</button>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; margin-top: 10px;">
+                        <h2 style="margin: 0;">Quick Message Bank (Instant Live)</h2>
+                        <button onclick="addQuickMessage()" class="btn-blue" style="padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 900; letter-spacing: 1px;">+ SAVE PRESET</button>
+                    </div>
+                    
+                    <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid">
+                        <!-- Populated dynamically by Socket.io -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        function api(c, v=""){ fetch(`/api/${c}${v ? (v.startsWith('?') ? v : '?sec='+v) : ''}`); }
+        function updateMsgText(){ 
+            const text = document.getElementById('minput').value;
+            fetch(`/api/message/set?text=${encodeURIComponent(text)}`);
+        }
+        function triggerMsg(index) {
+            // Instantly sets the message and pushes it live
+            fetch(`/api/message/trigger?index=${index}`);
+        }
+        function setCustomTime() {
+            const mins = document.getElementById('custom-min').value;
+            if (mins) api('reset', parseInt(mins) * 60);
+        }
+
+        function addQuickMessage() {
+            const text = document.getElementById('minput').value.trim();
+            if(text) {
+                fetch(`/api/messages/add?text=${encodeURIComponent(text)}`);
+                document.getElementById('minput').value = '';
+            } else {
+                const input = document.getElementById('minput');
+                input.style.borderColor = 'var(--red)';
+                setTimeout(() => input.style.borderColor = 'var(--border)', 800);
+            }
+        }
+
+        function openRestartModal() { document.getElementById('restart-modal').classList.add('active'); }
+        function closeRestartModal() { document.getElementById('restart-modal').classList.remove('active'); }
+        function confirmRestart() {
+            fetch('/api/system/restart');
+            closeRestartModal();
+            const ipDisplay = document.getElementById('ip-display');
+            if(ipDisplay) {
+                ipDisplay.innerText = "RESTARTING...";
+                ipDisplay.style.color = "var(--red)";
+                ipDisplay.style.borderColor = "var(--red)";
+                ipDisplay.style.animation = "pulse 1s infinite";
+            }
+            setTimeout(() => { window.location.reload(); }, 4000);
+        }
+
+        socket.on('stateUpdate', s => {
+            const ipDisplay = document.getElementById('ip-display');
+            if (ipDisplay.innerText !== "RESTARTING...") {
+                ipDisplay.innerText = s.ip;
+                ipDisplay.style.color = "";
+                ipDisplay.style.borderColor = "";
+                ipDisplay.style.animation = "";
+            }
+            
+            document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo').forEach(btn => {
+                btn.style.border = '1px solid transparent'; btn.style.color = '#fff';
+            });
+            const activeBtn = document.getElementById('mode-' + s.mode);
+            if(activeBtn) { activeBtn.style.border = '1px solid #60a5fa'; activeBtn.style.color = '#60a5fa'; }
+
+            if (s.mode === 'timeofday') {
+                document.getElementById('m-time').innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'});
+            } else if (s.mode === 'logo') {
+                document.getElementById('m-time').innerText = "IDLE";
+            } else {
+                const abs = Math.abs(s.timeLeft);
+                document.getElementById('m-time').innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+            }
+            
+            document.getElementById('msg-preview-text').innerText = s.message || "None";
+            const badge = document.getElementById('msg-badge');
+            const toggleBtn = document.getElementById('btn-toggle');
+            
+            if(s.showMessage) {
+                badge.innerText = "LIVE ON STAGE";
+                badge.className = "msg-status-badge status-live";
+                toggleBtn.innerText = "HIDE MESSAGE";
+                toggleBtn.className = "btn btn-toggle btn-toggle-on";
+            } else {
+                badge.innerText = "OFF AIR";
+                badge.className = "msg-status-badge status-off";
+                toggleBtn.innerText = "SHOW MESSAGE";
+                toggleBtn.className = "btn btn-toggle btn-toggle-off";
+            }
+
+            document.getElementById('b-start').classList.toggle('hidden', s.isRunning);
+            document.getElementById('b-pause').classList.toggle('hidden', !s.isRunning);
+        });
+
+        // Upgraded Quick Message Bank with Numbers and Instant Trigger
+        socket.on('messagesUpdate', msgs => {
+            const grid = document.getElementById('quick-messages-grid');
+            grid.innerHTML = '';
+            msgs.forEach((msg, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.style.position = 'relative';
+                wrapper.style.display = 'flex';
+                
+                const btn = document.createElement('button');
+                btn.className = "btn-msg-bank";
+                
+                // Number Badge
+                const numSpan = document.createElement('span');
+                numSpan.className = "msg-number-badge";
+                numSpan.innerText = index + 1;
+                
+                // Text Span
+                const textSpan = document.createElement('span');
+                textSpan.innerText = msg;
+                
+                btn.appendChild(numSpan);
+                btn.appendChild(textSpan);
+                
+                btn.title = msg;
+                btn.onclick = () => triggerMsg(index); // INSTANT TRIGGER ON CLICK
+                
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = '×';
+                delBtn.style.position = "absolute";
+                delBtn.style.right = "8px";
+                delBtn.style.top = "50%";
+                delBtn.style.transform = "translateY(-50%)";
+                delBtn.style.background = "none";
+                delBtn.style.border = "none";
+                delBtn.style.color = "#ef4444";
+                delBtn.style.fontSize = "22px";
+                delBtn.style.lineHeight = "1";
+                delBtn.style.cursor = "pointer";
+                delBtn.style.opacity = "0";
+                delBtn.style.transition = "opacity 0.2s";
+                
+                wrapper.onmouseover = () => delBtn.style.opacity = "0.8";
+                wrapper.onmouseout = () => delBtn.style.opacity = "0";
+                delBtn.onmouseover = () => delBtn.style.opacity = "1";
+                
+                delBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    fetch(`/api/messages/remove?index=${index}`);
+                };
+                
+                wrapper.appendChild(btn);
+                wrapper.appendChild(delBtn);
+                grid.appendChild(wrapper);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
+const { exec } = require('child_process');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// --- IP DETECTION ---
+function getLocalIp() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
+// --- PERSISTENT MESSAGES SETUP ---
+const messagesFile = path.join(__dirname, 'messages.json');
+let quickMessages = ['Wrap Up Now', 'Q&A Starting', '5 Minutes Left', 'Speak Up'];
+
+try {
+    if (fs.existsSync(messagesFile)) {
+        quickMessages = JSON.parse(fs.readFileSync(messagesFile, 'utf8'));
+    } else {
+        fs.writeFileSync(messagesFile, JSON.stringify(quickMessages));
+    }
+} catch (e) {
+    console.error("Could not load messages.json", e);
+}
+
+function saveMessages() {
+    try { fs.writeFileSync(messagesFile, JSON.stringify(quickMessages)); } 
+    catch (e) { console.error("Could not save messages.json", e); }
+}
+
+// --- APP STATE ---
+let state = {
+    timeLeft: 600,
+    initialTime: 600,
+    isRunning: false,
+    message: "",
+    showMessage: false,
+    mode: 'countdown', // countdown, countup, timeofday, logo
+    ip: getLocalIp(),
+    blink_state: false
+};
+
+// --- GLOBAL TICK ENGINES ---
+// Standard Timer Tick (1 Second)
+setInterval(() => {
+    if (state.isRunning) {
+        if (state.mode === 'countdown') state.timeLeft--;
+        else if (state.mode === 'countup') state.timeLeft++;
+        broadcast();
+    }
+}, 1000);
+
+// Flashing Engine for "Time's Up" (500ms)
+setInterval(() => {
+    if (state.isRunning && state.mode === 'countdown' && state.timeLeft <= 0) {
+        state.blink_state = !state.blink_state;
+        broadcast();
+    } else if (state.blink_state !== false) {
+        state.blink_state = false;
+        broadcast();
+    }
+}, 500);
+
+// --- API ENDPOINTS ---
+app.get('/api/state', (req, res) => res.json(state));
+
+app.get('/api/start', (req, res) => {
+    state.isRunning = true;
+    broadcast();
+    res.send('Started');
+});
+
+app.get('/api/pause', (req, res) => {
+    state.isRunning = false;
+    broadcast();
+    res.send('Paused');
+});
+
+app.get('/api/toggle_playback', (req, res) => {
+    state.isRunning = !state.isRunning;
+    broadcast();
+    res.send(state.isRunning ? 'Started' : 'Paused');
+});
+
+app.get('/api/reset', (req, res) => {
+    const sec = parseInt(req.query.sec) || state.initialTime;
+    state.isRunning = false;
+    state.timeLeft = sec;
+    state.initialTime = sec;
+    broadcast();
+    res.send('Reset');
+});
+
+app.get('/api/add', (req, res) => {
+    state.timeLeft += parseInt(req.query.sec) || 0;
+    broadcast();
+    res.send('Adjusted');
+});
+
+app.get('/api/mode', (req, res) => {
+    const validModes = ['countdown', 'countup', 'timeofday', 'logo'];
+    if (validModes.includes(req.query.set)) {
+        state.mode = req.query.set;
+        if (state.mode === 'countup') {
+            state.timeLeft = 0;
+            state.initialTime = 0;
+        }
+        broadcast();
+        res.send('Mode updated');
+    } else {
+        res.status(400).send('Invalid Mode');
+    }
+});
+
+app.get('/api/message/toggle', (req, res) => {
+    state.showMessage = !state.showMessage;
+    broadcast();
+    res.send(state.showMessage ? 'Message Shown' : 'Message Hidden');
+});
+
+app.get('/api/message/set', (req, res) => {
+    state.message = req.query.text || "";
+    broadcast();
+    res.send('Message Set');
+});
+
+// INSTANT TRIGGER: Sets the message AND forces it live immediately
+app.get('/api/message/trigger', (req, res) => {
+    const index = parseInt(req.query.index);
+    if (!isNaN(index) && index >= 0 && index < quickMessages.length) {
+        state.message = quickMessages[index];
+        state.showMessage = true;
+        broadcast();
+        res.send('Message Triggered Live');
+    } else {
+        res.status(400).send('Invalid Message Index');
+    }
+});
+
+// --- SYSTEM CONTROLS ---
+app.get('/api/system/restart', (req, res) => {
+    res.send('Restarting System Service...');
+    exec('sudo systemctl restart stage-timer', (error, stdout, stderr) => {
+        if (error) console.error(`Restart error: ${error}`);
+    });
+});
+
+// Editable Quick Messages Endpoints
+app.get('/api/messages', (req, res) => res.json(quickMessages));
+
+app.get('/api/messages/add', (req, res) => {
+    const text = req.query.text;
+    if (text && !quickMessages.includes(text)) {
+        quickMessages.push(text);
+        saveMessages();
+        io.emit('messagesUpdate', quickMessages);
+    }
+    res.send('Added');
+});
+
+app.get('/api/messages/remove', (req, res) => {
+    const index = parseInt(req.query.index);
+    if (!isNaN(index) && index >= 0 && index < quickMessages.length) {
+        quickMessages.splice(index, 1);
+        saveMessages();
+        io.emit('messagesUpdate', quickMessages);
+    }
+    res.send('Removed');
+});
+
+// Used by the Companion Module
+app.get('/api/companion', (req, res) => {
+    const abs = Math.abs(state.timeLeft);
+    const timeStr = (state.timeLeft < 0 ? "-" : "") + 
+                    Math.floor(abs/60).toString().padStart(2,'0') + ":" + 
+                    (abs%60).toString().padStart(2,'0');
+    
+    // Creates a strictly overtime string (e.g., "+01:30")
+    const overTimeStr = state.timeLeft < 0 
+                        ? "+" + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0') 
+                        : "";
+
+    res.json({ 
+        time: timeStr, 
+        running: state.isRunning, 
+        msg_active: state.showMessage, 
+        raw_seconds: state.timeLeft,
+        over_time: overTimeStr,
+        mode: state.mode,
+        blink_state: state.blink_state,
+        messages: quickMessages // <-- Publish the array so Companion can read it dynamically!
+    });
+});
+
+function broadcast() {
+    io.emit('stateUpdate', state);
+}
+
+io.on('connection', (socket) => {
+    socket.emit('stateUpdate', state);
+    socket.emit('messagesUpdate', quickMessages); // Send messages array immediately on connect
+});
+
+app.use(express.static(path.join(__dirname, 'public')));
+server.listen(3000, '0.0.0.0', () => console.log('Server running on port 3000'));

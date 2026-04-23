@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Presenter View | Stage Timer Pro</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&family=JetBrains+Mono:wght@700&display=swap');
+        
+        :root {
+            --bg: #000000;
+            --text: #22c55e;
+            --warn: #f97316;
+            --danger: #ef4444;
+        }
+
+        *, html, body { cursor: none !important; user-select: none; }
+
+        body { 
+            margin: 0; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            transition: background-color 0.5s, color 0.5s;
+            padding: 0 4vw;
+            box-sizing: border-box;
+        }
+
+        #clock-container { width: 100%; display: flex; justify-content: center; align-items: center; }
+
+        #clock { 
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28vw;
+            font-weight: 700; 
+            font-variant-numeric: tabular-nums; 
+            line-height: 1; 
+            letter-spacing: -0.02em; 
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        #msg-container {
+            position: absolute; bottom: 12%; width: 100%; display: flex; justify-content: center;
+            padding: 0 5%; box-sizing: border-box; display: none;
+        }
+        .message-box {
+            background: white; color: black; padding: 2.5rem 5rem; border-radius: 3rem; text-align: center;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.9);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .message-label { display: block; font-size: 2vw; font-weight: 900; text-transform: uppercase; opacity: 0.3; margin-bottom: 0.5rem; letter-spacing: 0.2em; }
+        .message-text { font-size: 6vw; font-weight: 900; font-style: italic; }
+
+        @keyframes popIn { 
+            from { transform: scale(0.8) translateY(100px); opacity: 0; } 
+            to { transform: scale(1) translateY(0); opacity: 1; } 
+        }
+
+        /* Progress Bar */
+        #progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 2vh; background: rgba(255,255,255,0.1); }
+        #progress-bar { height: 100%; background: #22c55e; width: 100%; transition: width 1s linear, background-color 1s linear; }
+
+        /* States */
+        body.state-warn { background-color: var(--warn); color: white; }
+        
+        /* Pulsing Danger Border */
+        body.state-danger { 
+            background-color: var(--danger); 
+            color: white; 
+            box-shadow: inset 0 0 100px 30px rgba(150,0,0,0.8);
+            animation: danger-pulse 1s infinite alternate;
+        }
+        @keyframes danger-pulse {
+            0% { box-shadow: inset 0 0 50px 10px rgba(150,0,0,0.5); }
+            100% { box-shadow: inset 0 0 250px 80px rgba(100,0,0,1); }
+        }
+
+        /* IP Overlay for Crew Boot-up */
+        #ip-overlay {
+            position: absolute; top: 2vw; left: 2vw; color: rgba(255,255,255,0.4); font-family: monospace; font-size: 2vw; z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="ip-overlay">Connecting...</div>
+
+    <div id="clock-container">
+        <div id="clock">10:00</div>
+    </div>
+    
+    <div id="msg-container">
+        <div class="message-box">
+            <span class="message-label">Control Message</span>
+            <span id="msg-text" class="message-text"></span>
+        </div>
+    </div>
+
+    <div id="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        const clock = document.getElementById('clock');
+        const progressBar = document.getElementById('progress-bar');
+        const msgContainer = document.getElementById('msg-container');
+        const msgText = document.getElementById('msg-text');
+        const ipOverlay = document.getElementById('ip-overlay');
+
+        let currentMode = 'countdown';
+        let localTimeInterval = null;
+
+        socket.on('stateUpdate', (state) => {
+            currentMode = state.mode;
+
+            // Handle IP Fadeout (Only runs once)
+            if (state.ip && !ipOverlay.dataset.hidden) {
+                ipOverlay.innerText = "IP: " + state.ip;
+                setTimeout(() => { ipOverlay.style.display = 'none'; ipOverlay.dataset.hidden = 'true'; }, 15000);
+            }
+
+            // Document body reset
+            document.body.className = '';
+
+            if (state.mode === 'timeofday') {
+                if (!localTimeInterval) {
+                    localTimeInterval = setInterval(() => {
+                        if(currentMode === 'timeofday') {
+                            clock.innerText = new Date().toLocaleTimeString('en-US', { hour12: false });
+                            clock.style.fontSize = (84 / (8 * 0.6)) + "vw"; // Static scale for HH:MM:SS
+                        }
+                    }, 1000);
+                    clock.innerText = new Date().toLocaleTimeString('en-US', { hour12: false });
+                    clock.style.fontSize = (84 / (8 * 0.6)) + "vw";
+                }
+                document.getElementById('progress-container').style.display = 'none';
+                
+            } else if (state.mode === 'logo') {
+                // The Custom "Idle" Branding Screen
+                clock.innerText = "EVENT LOGO";
+                clock.style.fontSize = "12vw";
+                clock.style.opacity = "0.5";
+                document.getElementById('progress-container').style.display = 'none';
+
+            } else {
+                // Countdown & Count-Up Mode
+                document.getElementById('progress-container').style.display = 'block';
+                const absTime = Math.abs(state.timeLeft);
+                const mins = Math.floor(absTime / 60);
+                const secs = absTime % 60;
+                const timeStr = `${state.timeLeft < 0 ? '-' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                clock.innerText = timeStr;
+                clock.style.opacity = "1";
+
+                const charCount = timeStr.length;
+                let fontSizeVw = 84 / (charCount * 0.6);
+                if (fontSizeVw > 28) fontSizeVw = 28;
+                clock.style.fontSize = fontSizeVw + "vw";
+
+                // Danger and Warning States (Only applies to countdowns)
+                if (state.mode === 'countdown') {
+                    if (state.timeLeft <= 0) document.body.classList.add('state-danger');
+                    else if (state.timeLeft <= 120) document.body.classList.add('state-warn');
+                }
+
+                // Smooth Progress Bar Math
+                if (state.mode === 'countdown') {
+                    const progress = state.timeLeft <= 0 ? 0 : (state.timeLeft / state.initialTime) * 100;
+                    progressBar.style.width = `${progress}%`;
+                    
+                    // Hue shifts from 120 (Green) to 0 (Red)
+                    const hue = Math.max(0, (progress / 100) * 120);
+                    progressBar.style.backgroundColor = `hsl(${hue}, 80%, 50%)`;
+                } else {
+                    progressBar.style.width = '100%';
+                    progressBar.style.backgroundColor = 'var(--text)';
+                }
+            }
+
+            // 5. Messages 
+            if (state.showMessage && state.message) {
+                msgText.innerText = state.message;
+                msgContainer.style.display = 'flex';
+            } else {
+                msgContainer.style.display = 'none';
+            }
+        });
+
+        socket.on('disconnect', () => { clock.style.opacity = '0.3'; });
+        socket.on('connect', () => { clock.style.opacity = '1'; });
+    </script>
+</body>
+</html>
