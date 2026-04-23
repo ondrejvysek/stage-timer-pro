@@ -41,8 +41,10 @@ Once the SD card is flashed, insert it into the Raspberry Pi, connect your HDMI 
    ssh YOUR\_USERNAME@stagetimer.local
 
    *(If the .local address doesn't work, check your router for the Pi's IP address and type ssh YOUR\_USERNAME@\<IP\_ADDRESS\>)*.  
-3. Once logged in, run the **One-Line Installer**:  
-   curl \-sSL \[https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/main/install.sh\](https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/main/install.sh) | bash
+3. Once logged in, run the **One-Line Installer**:
+```
+curl -sSL https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/main/setup.sh | bash
+```
 
 ### **What the installer does:**
 
