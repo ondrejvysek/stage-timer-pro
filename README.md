@@ -198,3 +198,36 @@ The buttons on your Stream Deck are programmed to react to the live state of the
 #### Troubleshooting
 
 Module isn't showing up: Ensure the copy command in Step 2 worked correctly, and that the folder contains manifest.json and main.js. Don't forget to restart the Companion service (sudo systemctl restart companion).
+
+## Examples
+
+### Moderator view
+
+<img width="1127" height="1005" alt="image" src="https://github.com/user-attachments/assets/639e74db-8169-4792-8475-c3c02b5e43f6" />
+
+### Count down
+
+<img width="694" height="450" alt="image" src="https://github.com/user-attachments/assets/42a8d413-6742-491c-8b19-1af1daf1be27" />
+<img width="696" height="447" alt="image" src="https://github.com/user-attachments/assets/1fd2af75-3e12-462f-aebe-567aedae5d28" />
+<img width="698" height="447" alt="image" src="https://github.com/user-attachments/assets/6cbb392d-47fe-469c-adb8-471440459126" />
+
+
+### Count down stage message
+
+<img width="698" height="449" alt="image" src="https://github.com/user-attachments/assets/e6ce458b-f8cf-4f09-9481-813e8d4e5277" />
+
+### Count up
+
+<img width="700" height="447" alt="image" src="https://github.com/user-attachments/assets/2627c571-1359-44a1-9607-8df511e07579" />
+
+### Time of day
+
+<img width="694" height="449" alt="image" src="https://github.com/user-attachments/assets/ac2094e1-5261-4347-b4f0-54f8f0757dc1" />
+
+### Logo
+
+<img width="698" height="446" alt="image" src="https://github.com/user-attachments/assets/81015786-472b-40fa-a795-3c1673d617bf" />
+
+### Companion Stream Deck module
+
+<img width="755" height="702" alt="image" src="https://github.com/user-attachments/assets/5bf03473-2082-4e8f-b83c-5cde8dafc2c7" />
