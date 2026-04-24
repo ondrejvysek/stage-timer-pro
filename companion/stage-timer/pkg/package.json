@@ -8,9 +8,9 @@
     "build": "companion-module-build"
   },
   "dependencies": {
-    "@companion-module/base": "^1.8.0"
+    "@companion-module/base": "^1.14.1"
   },
   "devDependencies": {
-    "@companion-module/tools": "^1.5.0"
+    "@companion-module/tools": "^1.5.2"
   }
 }
