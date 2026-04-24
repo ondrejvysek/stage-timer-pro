@@ -95,6 +95,26 @@ setInterval(() => {
     }
 }, 500);
 
+// --- PWA MANIFEST (Mobile App Setup) ---
+const svgIcon = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230f172a'/><text x='50' y='65' font-family='sans-serif' font-size='50' font-weight='bold' fill='%2322c55e' text-anchor='middle'>ST</text></svg>`;
+
+app.get('/manifest.json', (req, res) => {
+    res.json({
+        "name": "Stage Timer Pro",
+        "short_name": "Stage Timer",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0f172a",
+        "theme_color": "#0f172a",
+        "icons": [{ "src": "/icon.svg", "sizes": "512x512", "type": "image/svg+xml" }]
+    });
+});
+
+app.get('/icon.svg', (req, res) => {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(svgIcon.replace('data:image/svg+xml;utf8,', ''));
+});
+
 // --- API ENDPOINTS ---
 app.get('/api/state', (req, res) => res.json(state));
 

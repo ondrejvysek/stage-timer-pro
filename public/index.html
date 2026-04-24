@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <title>Moderator Control | Stage Timer Pro</title>
+    <!-- PWA App Installation Support -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="/icon.svg">
+
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
@@ -170,10 +178,11 @@
     <div class="container">
         <header>
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
-            <div style="display: flex; align-items: center;">
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div class="ip-badge" id="ip-display">Connecting...</div>
+                <button id="btn-audio" onclick="toggleAudio()" class="btn-header-danger" style="color:var(--text-dim); border-color:var(--border);">🔕 AUDIO OFF</button>
                 <button onclick="openSettings()" class="btn-header-danger" style="background:var(--card); color:white; border-color:var(--border);">⚙️ SETTINGS</button>
-                <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger">RESTART</button>
+                <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger" style="color:var(--red);">RESTART</button>
             </div>
         </header>
 
@@ -272,7 +281,6 @@
                     <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid"></div>
                 </section>
 
-                <!-- Moved Logo Upload Under Messages -->
                 <section class="card">
                     <h2>Event Logo Upload</h2>
                     <div class="logo-preview-box" id="logo-preview-container">
@@ -292,6 +300,42 @@
     <script>
         const socket = io();
 
+        // Audio Cues Logic
+        let audioEnabled = false;
+        let lastTimeLeft = -999;
+        
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('btn-audio');
+            if (audioEnabled) {
+                btn.innerText = "🔔 AUDIO ON";
+                btn.style.color = "var(--green)";
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                ctx.resume(); // Safari requires user interaction to unlock audio
+            } else {
+                btn.innerText = "🔕 AUDIO OFF";
+                btn.style.color = "var(--text-dim)";
+            }
+        }
+
+        function playChime() {
+            if (!audioEnabled) return;
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 1);
+            } catch(e) { console.error("Audio block", e); }
+        }
+
         function api(c, v = "") { 
             let param = "";
             if (v !== "") {
@@ -308,18 +352,9 @@
             if(text) { fetch(`/api/messages/add?text=${encodeURIComponent(text)}`); document.getElementById('minput').value = ''; }
         }
 
-        // Settings Modal Management
-        function openSettings() {
-            document.getElementById('settings-modal').classList.add('active');
-            checkAPStatus();
-        }
+        function openSettings() { document.getElementById('settings-modal').classList.add('active'); checkAPStatus(); }
         function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
-        
-        function confirmRestart() {
-            fetch('/api/system/restart');
-            document.getElementById('restart-modal').classList.remove('active');
-            setTimeout(() => { window.location.reload(); }, 4000);
-        }
+        function confirmRestart() { fetch('/api/system/restart'); document.getElementById('restart-modal').classList.remove('active'); setTimeout(() => { window.location.reload(); }, 4000); }
         
         async function scanWifi() {
             document.getElementById('wifi-status').innerText = "Scanning...";
@@ -357,11 +392,7 @@
             const mask = document.getElementById('static-mask').value;
             const gw = document.getElementById('static-gw').value;
             if(!ssid || !ip || !mask || !gw) { alert('Select a network and fill all fields (IP, Mask, Gateway)'); return; }
-            
-            // Format for nmcli (e.g. 192.168.1.50/24)
-            const fullIP = ip.includes('/') ? ip : `${ip}/${mask}`;
-            
-            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(fullIP)}&gateway=${encodeURIComponent(gw)}`);
+            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(ip.includes('/')?ip:`${ip}/${mask}`)}&gateway=${encodeURIComponent(gw)}`);
             alert('Static IP Applied to connection.');
         }
 
@@ -371,57 +402,34 @@
             fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=auto`);
         }
 
-        // AP Management
         async function checkAPStatus() {
             try {
                 const res = await fetch('/api/system/ap/status');
                 const data = await res.json();
                 const badge = document.getElementById('ap-status-badge');
-                if(data.active) {
-                    badge.innerText = "ACTIVE"; badge.className = "msg-status-badge status-live";
-                } else {
-                    badge.innerText = "INACTIVE"; badge.className = "msg-status-badge status-off";
-                }
+                if(data.active) { badge.innerText = "ACTIVE"; badge.className = "msg-status-badge status-live"; } 
+                else { badge.innerText = "INACTIVE"; badge.className = "msg-status-badge status-off"; }
             } catch(e) {}
         }
 
-        async function toggleAP(action) {
-            await fetch(`/api/system/ap?action=${action}`);
-            setTimeout(checkAPStatus, 2000);
-        }
+        async function toggleAP(action) { await fetch(`/api/system/ap?action=${action}`); setTimeout(checkAPStatus, 2000); }
+        function setHostname() { const name = document.getElementById('sys-hostname').value; if(name) fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`); }
+        function updateFirmware() { if(confirm('Pull updates and restart?')) fetch('/api/system/update'); }
 
-        function setHostname() {
-            const name = document.getElementById('sys-hostname').value;
-            if(name) fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`);
-        }
-
-        function updateFirmware() {
-            if(confirm('Pull updates and restart?')) fetch('/api/system/update');
-        }
-
-        // Logo Upload Management
         function handleLogoSelection(input) {
             const file = input.files[0];
             if (!file) return;
-            
             const reader = new FileReader();
             reader.onload = function(e) {
-                const base64 = e.target.result;
-                // POST to backend
                 fetch('/api/system/logo/upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: base64 })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: e.target.result })
                 });
             };
             reader.readAsDataURL(file);
         }
 
         function clearLogo() {
-            if(confirm('Clear current logo?')) {
-                fetch('/api/system/logo/clear');
-                document.getElementById('logo-input').value = '';
-            }
+            if(confirm('Clear current logo?')) { fetch('/api/system/logo/clear'); document.getElementById('logo-input').value = ''; }
         }
 
         function updateLogoUI(dataUrl) {
@@ -431,14 +439,12 @@
             
             if (dataUrl) {
                 hint.classList.add('hidden');
-                img.src = dataUrl;
-                img.classList.remove('hidden');
+                img.src = dataUrl; img.classList.remove('hidden');
                 monitorImg.src = dataUrl;
             } else {
                 hint.classList.remove('hidden');
                 img.classList.add('hidden');
-                monitorImg.src = '';
-                monitorImg.classList.add('hidden');
+                monitorImg.src = ''; monitorImg.classList.add('hidden');
             }
         }
 
@@ -446,12 +452,13 @@
             document.getElementById('ip-display').innerText = s.ip;
             document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
-            // Handle logo data if present in state
-            if (s.logoData) {
-                updateLogoUI(s.logoData);
-            } else {
-                updateLogoUI(null);
+            // Audio trigger on exact cross of 0
+            if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 0 && lastTimeLeft === 1) {
+                playChime();
             }
+            lastTimeLeft = s.timeLeft;
+
+            if (s.logoData) updateLogoUI(s.logoData); else updateLogoUI(null);
 
             document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo').forEach(btn => {
                 btn.style.border = '1px solid transparent'; btn.style.color = '#fff';
@@ -464,13 +471,8 @@
 
             if (s.mode === 'logo') {
                 monitorTime.classList.add('hidden');
-                if (s.logoData) {
-                    monitorLogo.classList.remove('hidden');
-                } else {
-                    monitorTime.innerText = "IDLE";
-                    monitorTime.style.color = '#22c55e';
-                    monitorTime.classList.remove('hidden');
-                }
+                if (s.logoData) monitorLogo.classList.remove('hidden');
+                else { monitorTime.innerText = "IDLE"; monitorTime.style.color = '#22c55e'; monitorTime.classList.remove('hidden'); }
             } else {
                 monitorTime.classList.remove('hidden');
                 monitorLogo.classList.add('hidden');
@@ -481,19 +483,11 @@
                 } else {
                     const abs = Math.abs(s.timeLeft);
                     monitorTime.innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
-                    
-                    // Match Presenter View Colors
                     if (s.mode === 'countdown') {
-                        if (s.timeLeft <= 0) {
-                            monitorTime.style.color = s.blink_state ? '#000000' : '#ef4444'; // Blink or Solid Red
-                        } else if (s.timeLeft <= 120) {
-                            monitorTime.style.color = '#f97316'; // Warning Orange
-                        } else {
-                            monitorTime.style.color = '#22c55e'; // Default Green
-                        }
-                    } else {
-                        monitorTime.style.color = '#22c55e'; // Default Green for Countup
-                    }
+                        if (s.timeLeft <= 0) monitorTime.style.color = s.blink_state ? '#000000' : '#ef4444';
+                        else if (s.timeLeft <= 120) monitorTime.style.color = '#f97316'; 
+                        else monitorTime.style.color = '#22c55e';
+                    } else monitorTime.style.color = '#22c55e';
                 }
             }
             
@@ -501,13 +495,8 @@
             const badge = document.getElementById('msg-badge');
             const toggleBtn = document.getElementById('btn-toggle');
             
-            if(s.showMessage) {
-                badge.innerText = "LIVE ON STAGE"; badge.className = "msg-status-badge status-live";
-                toggleBtn.innerText = "HIDE MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-on";
-            } else {
-                badge.innerText = "OFF AIR"; badge.className = "msg-status-badge status-off";
-                toggleBtn.innerText = "SHOW MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-off";
-            }
+            if(s.showMessage) { badge.innerText = "LIVE ON STAGE"; badge.className = "msg-status-badge status-live"; toggleBtn.innerText = "HIDE MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-on"; } 
+            else { badge.innerText = "OFF AIR"; badge.className = "msg-status-badge status-off"; toggleBtn.innerText = "SHOW MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-off"; }
 
             document.getElementById('b-start').classList.toggle('hidden', s.isRunning);
             document.getElementById('b-pause').classList.toggle('hidden', !s.isRunning);
@@ -517,22 +506,16 @@
             const grid = document.getElementById('quick-messages-grid');
             grid.innerHTML = '';
             msgs.forEach((msg, index) => {
-                const wrapper = document.createElement('div');
-                wrapper.style.position = 'relative'; wrapper.style.display = 'flex';
-                
-                const btn = document.createElement('button');
-                btn.className = "btn-msg-bank";
+                const wrapper = document.createElement('div'); wrapper.style.position = 'relative'; wrapper.style.display = 'flex';
+                const btn = document.createElement('button'); btn.className = "btn-msg-bank";
                 btn.innerHTML = `<span class="msg-number-badge">${index + 1}</span><span>${msg}</span>`;
                 btn.onclick = () => fetch(`/api/message/trigger?index=${index}`);
                 
-                const delBtn = document.createElement('button');
-                delBtn.innerHTML = '×';
+                const delBtn = document.createElement('button'); delBtn.innerHTML = '×';
                 delBtn.style.cssText = "position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer; opacity:0; transition:opacity 0.2s;";
                 
-                wrapper.onmouseover = () => delBtn.style.opacity = "0.8";
-                wrapper.onmouseout = () => delBtn.style.opacity = "0";
-                delBtn.onmouseover = () => delBtn.style.opacity = "1";
-                delBtn.onclick = (e) => { e.stopPropagation(); fetch(`/api/messages/remove?index=${index}`); };
+                wrapper.onmouseover = () => delBtn.style.opacity = "0.8"; wrapper.onmouseout = () => delBtn.style.opacity = "0";
+                delBtn.onmouseover = () => delBtn.style.opacity = "1"; delBtn.onclick = (e) => { e.stopPropagation(); fetch(`/api/messages/remove?index=${index}`); };
                 
                 wrapper.appendChild(btn); wrapper.appendChild(delBtn); grid.appendChild(wrapper);
             });
