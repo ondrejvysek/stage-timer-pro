@@ -75,36 +75,6 @@ To control the timer, open a web browser on any device connected to the same net
 
 If you get easily distracted while producing, you can enable Audio Cues from the Moderator UI. Click the **🔕 AUDIO OFF** button in the header. When the timer hits 0:00, a subtle audio chime will play on your device.
 
-## **Elgato Stream Deck / Bitfocus Companion Integration**
-
-Stage Timer Pro includes a dedicated REST API designed perfectly for **Bitfocus Companion**, allowing Stage Managers to control the clock from tactile, hardware buttons.
-
-1. Open Bitfocus Companion and add a **Generic HTTP Requests** module.  
-2. Set the Base URL to: http://\<RASPBERRY\_PI\_IP\_ADDRESS\>:3000  
-3. Create buttons using **HTTP GET** requests to the following paths:  
-* **Start:** /api/start  
-* **Pause:** /api/pause  
-* **Toggle Playback:** /api/toggle\_playback  
-* **Reset Timer (to existing duration):** /api/reset  
-* **Set Preset Time:** /api/reset?sec=300 *(Sets timer to 5 minutes)*  
-* **Add/Subtract Time:** /api/add?sec=60 *(Adds 1 minute)*  
-* **Trigger Quick Message 1:** /api/message/trigger?index=0
-
-### **Companion Dynamic Feedback**
-
-You can also use Companion's JSON polling to read the current time and display it directly on your Stream Deck buttons\! Poll the /api/companion endpoint to receive:
-
-{  
-  "time": "05:00",  
-  "running": true,  
-  "msg\_active": false,  
-  "raw\_seconds": 300,  
-  "over\_time": "",  
-  "mode": "countdown",  
-  "blink\_state": false,  
-  "messages": \["Wrap Up Now"\]  
-}
-
 ## **Fallback Access Point (No Wi-Fi? No Problem)**
 
 If you take the Stage Timer to a venue with no Wi-Fi, or the local Wi-Fi drops, the Pi will automatically broadcast its own network after a minute:
@@ -124,3 +94,88 @@ The Moderator UI features a hidden **Settings Modal** (Click the Gear Icon in th
 * Change the Pi's hostname.  
 * Upload a custom event logo for the Idle display screen.  
 * **Pull Firmware Update (Git):** Instantly downloads the latest code from this repository and restarts the timer service.
+
+## **Elgato Stream Deck / Bitfocus Companion Integration**
+
+### **Bitfocus Companion: Custom Module Setup Guide (Companion Pi)**
+
+This repository includes a pre-built, custom Bitfocus Companion module designed specifically to control the Stage Timer Pro API.
+
+If you are running the official Companion Pi image, the system handles custom developer modules using a pre-configured directory. Because the module is already compiled in this repository, installation takes just a few seconds.
+
+### Step 1: Locate the Developer Folder
+
+On the Companion Pi image, the system automatically looks for custom developer modules in the following directory:
+`/opt/companion-module-dev/`
+
+### Step 2: Download & Install the Module
+
+You can download the module and move it to the developer folder in one action. This command downloads the repository to a temporary folder, extracts just the pre-built Companion module, places it in the correct directory, and cleans up the leftover files.
+
+SSH into your Companion Pi and run this block:
+```
+git clone https://github.com/ondrejvysek/stage-timer-pro.git /tmp/stage-timer-pro
+sudo cp -r /tmp/stage-timer-pro/companion/stage-timer/pkg /opt/companion-module-dev/stage-timer-pro
+rm -rf /tmp/stage-timer-pro
+```
+
+Your file structure will now correctly look like this:
+/opt/companion-module-dev/stage-timer-pro/package.json (along with main.js, manifest.json, and HELP.md).
+
+### Step 3: Restart Companion
+
+You must restart the Companion background service so it can scan the developer folder and recognize the newly added module.
+
+Run the following command: `sudo systemctl restart companion`
+
+### Step 4: Add the Module to Your Setup
+
+1. Open the Bitfocus Companion Web UI in your browser (e.g., http://<COMPANION_PI_IP>:8000).
+2. Go to the Connections tab.
+3. Under the Add Connection search bar, type Stage Timer Pro.
+4. You should see the custom module appear in the list.
+5. Click Add.
+6. In the configuration panel that appears, enter the IP address of your Stage Timer Pro Raspberry Pi. (If Companion is running on the exact same Pi as the timer, you can simply use 127.0.0.1 or localhost).
+7. Click Save.
+
+### Included Presets & Features
+
+Once connected, you can drag and drop pre-configured buttons directly from the Presets tab onto your Stream Deck. The module includes the following categories:
+
+#### 1. Transport Controls & Manual Adjustments
+
+Start / Pause / Toggle: Control the running state of the timer.
+
++1 Minute / -1 Minute: Adjust the time on the fly without stopping the clock.
+
+#### 2. Display Modes
+
+Instantly switch the HDMI output behavior:
+
+ - Countdown: Standard counting down to zero.
+ - Count-Up: Starts at zero and counts upward.
+ - Time of Day: Displays the current local time.
+ - Idle / Logo: Hides the clock and displays your uploaded custom Event Logo.
+
+#### 3. Quick Times
+
+Reset the timer to specific preset durations instantly:
+
+`1m`, `5m`, `10m`, `15m`, `30m`, and `60m`.
+
+#### 4. Messaging
+
+ - Toggle Message: Shows or hides the currently queued message.
+ - Trigger Quick Messages (Slots 0-3): Instantly forces one of your 4 saved Quick Messages to the screen.
+
+#### 🌟 Smart Feedbacks (Dynamic Colors)
+
+The buttons on your Stream Deck are programmed to react to the live state of the Stage Timer:
+
+ - Green: The timer is actively running.
+ - Yellow: Warning state (The timer has dropped below 2 minutes).
+ - Red / Flashing: Danger state (The timer has reached 0:00).
+
+#### Troubleshooting
+
+Module isn't showing up: Ensure the copy command in Step 2 worked correctly, and that the folder contains manifest.json and main.js. Don't forget to restart the Companion service (sudo systemctl restart companion).
