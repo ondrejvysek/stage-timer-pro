@@ -114,9 +114,25 @@ You can download the module and move it to the developer folder in one action. T
 
 SSH into your Companion Pi and run this block:
 ```
+1. Download the repository to a temporary folder
 git clone https://github.com/ondrejvysek/stage-timer-pro.git /tmp/stage-timer-pro
-sudo cp -r /tmp/stage-timer-pro/companion/stage-timer/pkg /opt/companion-module-dev/stage-timer-pro
+
+# 2. Create the developer directory and copy the pre-built files
+sudo mkdir -p /opt/companion-module-dev/stage-timer-pro
+sudo cp -r /tmp/stage-timer-pro/companion/stage-timer/* /opt/companion-module-dev/stage-timer-pro/
+
+# 3. Navigate into the new module folder
+cd /opt/companion-module-dev/stage-timer-pro
+
+# 4. Install the required Companion Base module (It's safe to ignore Node version warnings)
+sudo npm install @companion-module/base@^1.14.1
+
+# 5. CRITICAL: Fix folder ownership so the Companion background service can read it
+sudo chown -R companion:companion /opt/companion-module-dev/stage-timer-pro
+
+# 6. Clean up the temporary files and restart Companion
 rm -rf /tmp/stage-timer-pro
+sudo systemctl restart companion
 ```
 
 Your file structure will now correctly look like this:
