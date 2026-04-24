@@ -1,6 +1,6 @@
 #!/bin/bash
 # Stage Timer Pro - Automated Install Script
-# Fetches the latest code from Git and configures the Kiosk Pi
+# Fetches the latest code from Git and configures the Kiosk Pi with X11
 
 echo "================================================="
 echo "  Stage Timer Pro - Automated Deployment"
@@ -13,7 +13,8 @@ APP_DIR="$HOME/stage-timer"
 
 echo -e "\n[1/7] Updating system and installing dependencies..."
 sudo apt update
-sudo apt install -y git nodejs npm chromium cage network-manager fonts-dejavu fonts-liberation fonts-roboto
+# Pure X11 setup - No Wayland, no Cage, no xdotool needed!
+sudo apt install -y git nodejs npm chromium xserver-xorg x11-xserver-utils xinit openbox network-manager fonts-dejavu fonts-liberation fonts-roboto
 
 echo -e "\n[2/7] Configuring Auto-Fallback Wi-Fi Hotspot..."
 sudo nmcli connection delete "StageTimer_Fallback" 2>/dev/null
@@ -26,8 +27,8 @@ echo -e "\n[3/7] Automating OS Autologin..."
 # Enable Console Autologin (Boot option B2)
 sudo raspi-config nonint do_boot_behaviour B2
 
-echo -e "\n[4/7] Setting up user permissions for Cage (Kiosk)..."
-sudo usermod -a -G video,render,input $CURRENT_USER
+echo -e "\n[4/7] Setting up user permissions..."
+sudo usermod -a -G video,render,input,tty $CURRENT_USER
 
 echo -e "\n[5/7] Downloading latest code from Git..."
 if [ -d "$APP_DIR" ]; then
@@ -37,14 +38,13 @@ git clone "$REPO_URL" "$APP_DIR"
 
 cd "$APP_DIR"
 
-echo -e "\n[6/7] Installing Node App Dependencies & Setting Permissions..."
+echo -e "\n[6/7] Installing Node App Dependencies..."
 npm install
-# Makes the start-timer.sh script executable (now downloaded directly from Git!)
 chmod +x "$APP_DIR/start-timer.sh"
 
-echo -e "\n[7/7] Creating and Enabling Systemd Services..."
+echo -e "\n[7/7] Creating Node Service and X11 Autologin..."
 
-# Create the Node.js Server Service
+# Create the Node.js Server Service dynamically for the logged-in user
 sudo tee /etc/systemd/system/stage-timer.service > /dev/null << EOF
 [Unit]
 Description=Stage Timer Node Server
@@ -66,10 +66,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable stage-timer
 sudo systemctl start stage-timer
 
-# Bind the Kiosk launch to the physical HDMI console autologin
-if ! grep -q "start-timer.sh" "$HOME/.bash_profile" 2>/dev/null; then
-    echo '[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && '"$APP_DIR"'/start-timer.sh' >> "$HOME/.bash_profile"
-fi
+# Bind the Kiosk launch to the physical HDMI console autologin using X11
+# The -- -nocursor flag natively destroys the hardware cursor pointer
+echo '[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && exec startx "'$APP_DIR'/start-timer.sh" -- -nocursor' > "$HOME/.bash_profile"
 
 echo "================================================="
 echo "  Setup Complete! "

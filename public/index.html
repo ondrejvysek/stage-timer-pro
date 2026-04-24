@@ -27,16 +27,23 @@
         .status-live { background: var(--red); color: white; animation: pulse 1.5s infinite; }
         .status-off { background: #334155; color: var(--text-dim); }
 
+        /* Transport Buttons Base */
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .btn { border: none; border-radius: 15px; cursor: pointer; font-weight: 900; padding: 20px; color: #fff; transition: all 0.2s; }
+        .btn { border: none; border-radius: 15px; cursor: pointer; font-weight: 900; padding: 20px; color: #fff; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
         .btn:active { transform: scale(0.95); }
-        .btn-start { background: var(--green); height: 120px; font-size: 18px; letter-spacing: 1px; }
-        .btn-pause { background: var(--amber); height: 120px; font-size: 18px; letter-spacing: 1px; }
-        .btn-reset { background: #475569; height: 120px; font-size: 18px; letter-spacing: 1px; }
-        .btn-blue { background: rgba(37, 99, 235, 0.1); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); padding: 15px; cursor: pointer; }
+        
+        /* Icon Containers */
+        .icon-circle { background: rgba(255,255,255,0.2); padding: 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .icon-circle svg { width: 32px; height: 32px; }
+
+        /* Specific Colors */
+        .btn-start { background: var(--green); height: 160px; box-shadow: 0 10px 20px rgba(22, 163, 74, 0.2); }
+        .btn-pause { background: var(--amber); height: 160px; box-shadow: 0 10px 20px rgba(217, 119, 6, 0.2); }
+        .btn-reset { background: #475569; height: 160px; color: #cbd5e1; }
+        .btn-blue { background: rgba(37, 99, 235, 0.1); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); padding: 15px; }
         .btn-dim { background: #334155; color: #94a3b8; padding: 15px; }
 
-        .btn-toggle { height: 60px; width: 100%; margin-top: 10px; border-radius: 12px; }
+        .btn-toggle { height: 60px; width: 100%; margin-top: 10px; border-radius: 12px; flex-direction: row; }
         .btn-toggle-on { background: var(--red); }
         .btn-toggle-off { background: var(--blue); }
 
@@ -60,7 +67,7 @@
         .ip-badge { background: #1e293b; padding: 8px 15px; border-radius: 8px; font-family: monospace; border: 1px solid #334155; font-size: 14px; color: #60a5fa;}
         .btn-header-danger { background: rgba(220, 38, 38, 0.1); color: var(--red); border: 1px solid rgba(220, 38, 38, 0.3); padding: 8px 15px; border-radius: 8px; font-weight: 900; font-size: 12px; cursor: pointer; margin-left: 10px; letter-spacing: 1px;}
 
-        /* System Settings Modal */
+        /* Modal Styles */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
         .modal-content { background: var(--card); border: 1px solid var(--border); padding: 30px; border-radius: 24px; width: 500px; max-height: 90vh; overflow-y: auto; transform: translateY(20px); transition: transform 0.2s; }
@@ -74,7 +81,6 @@
         .sys-btn { background: var(--blue); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .sys-btn-warn { background: var(--amber); }
         .sys-btn-danger { background: var(--red); }
-        select.sys-input { appearance: none; }
 
         .hidden { display: none; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -95,7 +101,7 @@
                     <button onclick="scanWifi()" class="sys-btn" style="width: 100%;">SCAN NETWORKS</button>
                 </div>
                 <div class="sys-row hidden" id="wifi-select-row">
-                    <select id="wifi-ssid" class="sys-input"></select>
+                    <select id="wifi-ssid" class="sys-input" onchange="toggleWifiPass()"></select>
                 </div>
                 <div class="sys-row hidden" id="wifi-pass-row">
                     <input type="password" id="wifi-pass" class="sys-input" placeholder="Password (if needed)">
@@ -108,7 +114,10 @@
                 <h3>Static IP (For Current Wi-Fi)</h3>
                 <p id="current-ip-info" style="font-size: 11px; color: var(--text-dim); margin-top: -10px; margin-bottom: 10px;">Current Netmask: Loading...</p>
                 <div class="sys-row">
-                    <input type="text" id="static-ip" class="sys-input" placeholder="IP (e.g. 192.168.1.50/24)">
+                    <input type="text" id="static-ip" class="sys-input" placeholder="IP (192.168.1.50)">
+                    <input type="text" id="static-mask" class="sys-input" placeholder="Mask (e.g. 24)" style="flex: none; width: 100px;">
+                </div>
+                <div class="sys-row">
                     <input type="text" id="static-gw" class="sys-input" placeholder="Gateway (192.168.1.1)">
                 </div>
                 <div class="sys-row">
@@ -118,10 +127,13 @@
             </div>
 
             <div class="sys-group">
-                <h3>Access Point (Fallback)</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Access Point (Fallback)</h3>
+                    <span id="ap-status-badge" class="msg-status-badge status-off" style="float: none; position: static;">CHECKING...</span>
+                </div>
                 <div class="sys-row">
-                    <button onclick="fetch('/api/system/ap?action=on')" class="sys-btn" style="flex:1; background: var(--green);">TURN ON AP</button>
-                    <button onclick="fetch('/api/system/ap?action=down')" class="sys-btn sys-btn-danger" style="flex:1;">TURN OFF AP</button>
+                    <button onclick="toggleAP('on')" class="sys-btn" style="flex:1; background: var(--green);">TURN ON AP</button>
+                    <button onclick="toggleAP('down')" class="sys-btn sys-btn-danger" style="flex:1;">TURN OFF AP</button>
                 </div>
             </div>
 
@@ -145,7 +157,7 @@
             <p style="color: var(--text-dim); margin-bottom: 25px;">Are you sure you want to restart the Stage Timer service?</p>
             <div class="btn-grid">
                 <button onclick="document.getElementById('restart-modal').classList.remove('active')" class="btn btn-dim" style="padding: 15px;">CANCEL</button>
-                <button onclick="confirmRestart()" class="btn btn-toggle-on" style="padding: 15px;">RESTART</button>
+                <button onclick="confirmRestart()" class="btn btn-toggle-on" style="padding: 15px; flex-direction: row;">RESTART</button>
             </div>
         </div>
     </div>
@@ -155,7 +167,7 @@
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
             <div style="display: flex; align-items: center;">
                 <div class="ip-badge" id="ip-display">Connecting...</div>
-                <button onclick="document.getElementById('settings-modal').classList.add('active')" class="btn-header-danger" style="background:var(--card); color:white; border-color:var(--border);">⚙️ SETTINGS</button>
+                <button onclick="openSettings()" class="btn-header-danger" style="background:var(--card); color:white; border-color:var(--border);">⚙️ SETTINGS</button>
                 <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger">RESTART</button>
             </div>
         </header>
@@ -205,11 +217,37 @@
                 <section class="card" style="margin-bottom: 20px;">
                     <h2>Transport Controls</h2>
                     <div class="btn-grid">
-                        <button id="b-start" onclick="api('start')" class="btn btn-start">START</button>
-                        <button id="b-pause" onclick="api('pause')" class="btn btn-pause hidden">PAUSE</button>
-                        <button onclick="api('reset')" class="btn btn-reset">RESET</button>
-                        <button onclick="api('add',60)" class="btn btn-blue">+1 MIN</button>
-                        <button onclick="api('add',-60)" class="btn btn-dim">-1 MIN</button>
+                        <!-- Play/Pause Toggle -->
+                        <div id="transport-toggle">
+                            <button id="b-start" onclick="api('start')" class="btn btn-start" style="width: 100%;">
+                                <div class="icon-circle">
+                                    <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                </div>
+                                <span style="font-size: 1.25rem; letter-spacing: 0.1em;">START</span>
+                            </button>
+                            <button id="b-pause" onclick="api('pause')" class="btn btn-pause hidden" style="width: 100%;">
+                                <div class="icon-circle">
+                                    <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                </div>
+                                <span style="font-size: 1.25rem; letter-spacing: 0.1em;">PAUSE</span>
+                            </button>
+                        </div>
+
+                        <!-- Reset -->
+                        <button onclick="api('reset')" class="btn btn-reset">
+                            <div class="icon-circle" style="background: rgba(255,255,255,0.1);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            </div>
+                            <span style="font-size: 1.25rem; letter-spacing: 0.1em;">RESET</span>
+                        </button>
+
+                        <!-- Adjustments -->
+                        <button onclick="api('add',60)" class="btn btn-blue" style="height: 80px; flex-direction: row; gap: 8px;">
+                            <span style="font-size: 20px;">+</span> 1 MIN
+                        </button>
+                        <button onclick="api('add',-60)" class="btn btn-dim" style="height: 80px; flex-direction: row; gap: 8px;">
+                            <span style="font-size: 20px;">-</span> 1 MIN
+                        </button>
                     </div>
                 </section>
 
@@ -231,7 +269,16 @@
 
     <script>
         const socket = io();
-        function api(c, v=""){ fetch(`/api/${c}${v ? (v.startsWith('?') ? v : '?sec='+v) : ''}`); }
+
+        function api(c, v = "") { 
+            let param = "";
+            if (v !== "") {
+                const vStr = String(v);
+                param = vStr.startsWith('?') ? vStr : ('?sec=' + vStr);
+            }
+            fetch(`/api/${c}${param}`); 
+        }
+
         function updateMsgText(){ fetch(`/api/message/set?text=${encodeURIComponent(document.getElementById('minput').value)}`); }
         function setCustomTime() { const mins = document.getElementById('custom-min').value; if (mins) api('reset', parseInt(mins) * 60); }
         function addQuickMessage() {
@@ -239,8 +286,13 @@
             if(text) { fetch(`/api/messages/add?text=${encodeURIComponent(text)}`); document.getElementById('minput').value = ''; }
         }
 
-        // --- System Management Functions ---
+        // Settings Modal Management
+        function openSettings() {
+            document.getElementById('settings-modal').classList.add('active');
+            checkAPStatus();
+        }
         function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
+        
         function confirmRestart() {
             fetch('/api/system/restart');
             document.getElementById('restart-modal').classList.remove('active');
@@ -255,12 +307,17 @@
             select.innerHTML = '<option value="">Select a Network...</option>';
             networks.forEach(n => {
                 const opt = document.createElement('option');
-                opt.value = n.ssid; opt.innerText = `${n.ssid} (Signal: ${n.signal}%)`;
+                opt.value = n.ssid; opt.innerText = `${n.ssid} (${n.signal}%)`;
                 select.appendChild(opt);
             });
             document.getElementById('wifi-select-row').classList.remove('hidden');
-            document.getElementById('wifi-pass-row').classList.remove('hidden');
             document.getElementById('wifi-status').innerText = "";
+        }
+
+        function toggleWifiPass() {
+            const ssid = document.getElementById('wifi-ssid').value;
+            if (ssid) document.getElementById('wifi-pass-row').classList.remove('hidden');
+            else document.getElementById('wifi-pass-row').classList.add('hidden');
         }
 
         async function connectWifi() {
@@ -275,34 +332,52 @@
         function setStaticIP() {
             const ssid = document.getElementById('wifi-ssid').value;
             const ip = document.getElementById('static-ip').value;
+            const mask = document.getElementById('static-mask').value;
             const gw = document.getElementById('static-gw').value;
-            if(!ssid || !ip || !gw) { alert('Select a Wi-Fi network above, and enter both IP and Gateway.'); return; }
-            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(ip)}&gateway=${encodeURIComponent(gw)}`);
+            if(!ssid || !ip || !mask || !gw) { alert('Select a network and fill all fields (IP, Mask, Gateway)'); return; }
+            
+            // Format for nmcli (e.g. 192.168.1.50/24)
+            const fullIP = ip.includes('/') ? ip : `${ip}/${mask}`;
+            
+            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(fullIP)}&gateway=${encodeURIComponent(gw)}`);
             alert('Static IP Applied to connection.');
         }
 
         function setAutoIP() {
             const ssid = document.getElementById('wifi-ssid').value;
-            if(!ssid) { alert('Select a Wi-Fi network above.'); return; }
+            if(!ssid) return;
             fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=auto`);
-            alert('Reverted to DHCP (Auto IP).');
+        }
+
+        // AP Management
+        async function checkAPStatus() {
+            try {
+                const res = await fetch('/api/system/ap/status');
+                const data = await res.json();
+                const badge = document.getElementById('ap-status-badge');
+                if(data.active) {
+                    badge.innerText = "ACTIVE"; badge.className = "msg-status-badge status-live";
+                } else {
+                    badge.innerText = "INACTIVE"; badge.className = "msg-status-badge status-off";
+                }
+            } catch(e) {}
+        }
+
+        async function toggleAP(action) {
+            await fetch(`/api/system/ap?action=${action}`);
+            setTimeout(checkAPStatus, 2000);
         }
 
         function setHostname() {
             const name = document.getElementById('sys-hostname').value;
-            if(name) { fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`); alert('Hostname set! Reboot required.'); }
+            if(name) fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`);
         }
 
         function updateFirmware() {
-            if(confirm('This will pull the latest code from GitHub and restart the app. Continue?')) {
-                fetch('/api/system/update');
-                setTimeout(() => { window.location.reload(); }, 5000);
-            }
+            if(confirm('Pull updates and restart?')) fetch('/api/system/update');
         }
 
-        // --- UI Updates ---
         socket.on('stateUpdate', s => {
-            // Keep top-right clean, push netmask logic down to settings
             document.getElementById('ip-display').innerText = s.ip;
             document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
