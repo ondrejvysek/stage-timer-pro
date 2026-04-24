@@ -1,4 +1,5 @@
 #!/bin/bash
+# (No blocking loop)
 
 # Disable screen blanking / screensaver
 xset -dpms

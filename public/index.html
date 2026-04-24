@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Moderator Control | Stage Timer Pro</title>
-    <!-- PWA App Installation Support -->
     <link rel="manifest" href="/manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -100,7 +99,6 @@
     </style>
 </head>
 <body>
-    <!-- Settings Modal -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-title">
@@ -163,7 +161,6 @@
         </div>
     </div>
 
-    <!-- Restart Modal -->
     <div id="restart-modal" class="modal-overlay">
         <div class="modal-content" style="width: 400px; text-align: center;">
             <h3 style="color: var(--red); margin-top:0;">SYSTEM RESTART</h3>
@@ -187,7 +184,6 @@
         </header>
 
         <div class="grid">
-            <!-- Left Side: Monitor, Modes, and Time Config -->
             <div class="side-left">
                 <section class="card" style="margin-bottom: 20px;">
                     <h2>Live Monitor</h2>
@@ -229,12 +225,10 @@
                 </section>
             </div>
 
-            <!-- Right Side: Transports, Messages, and Logo -->
             <div class="side-right">
                 <section class="card" style="margin-bottom: 20px;">
                     <h2>Transport Controls</h2>
                     <div class="btn-grid">
-                        <!-- Play/Pause Toggle -->
                         <div id="transport-toggle">
                             <button id="b-start" onclick="api('start')" class="btn btn-start" style="width: 100%;">
                                 <div class="icon-circle">
@@ -250,7 +244,6 @@
                             </button>
                         </div>
 
-                        <!-- Reset -->
                         <button onclick="api('reset')" class="btn btn-reset">
                             <div class="icon-circle" style="background: rgba(255,255,255,0.1);">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -258,7 +251,6 @@
                             <span style="font-size: 1.25rem; letter-spacing: 0.1em;">RESET</span>
                         </button>
 
-                        <!-- Adjustments -->
                         <button onclick="api('add',60)" class="btn btn-blue" style="height: 80px; flex-direction: row; gap: 8px;">
                             <span style="font-size: 20px;">+</span> 1 MIN
                         </button>

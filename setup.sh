@@ -13,7 +13,7 @@ APP_DIR="$HOME/stage-timer"
 
 echo -e "\n[1/8] Updating system and installing dependencies..."
 sudo apt update
-sudo apt install -y git nodejs npm chromium xserver-xorg x11-xserver-utils xinit openbox network-manager fonts-dejavu fonts-liberation fonts-roboto plymouth plymouth-themes
+sudo apt install -y git nodejs npm chromium xserver-xorg x11-xserver-utils xinit openbox network-manager fonts-dejavu fonts-liberation fonts-roboto plymouth plymouth-themes imagemagick curl
 
 echo -e "\n[2/8] Configuring Auto-Fallback Wi-Fi Hotspot..."
 sudo nmcli connection delete "StageTimer_Fallback" 2>/dev/null
@@ -45,7 +45,7 @@ echo -e "\n[7/8] Creating Offline Loading Screen..."
 cat << 'EOF' > "$APP_DIR/loading.html"
 <!DOCTYPE html>
 <html><head><style>
-body { background:#000; color:#22c55e; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; font-size:4vw; font-weight:bold; }
+body { background:#000; color:#22c55e; font-family:sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; font-size:4vw; font-weight:bold; text-align:center;}
 @keyframes pulse { 0%, 100% {opacity:1;} 50% {opacity:0.3;} }
 </style><script>
 function checkServer() {
@@ -66,6 +66,7 @@ sudo tee "$THEME_DIR/stagetimer.plymouth" > /dev/null << EOF
 Name=StageTimer
 Description=Stage Timer Pro Custom Splash
 ModuleName=script
+
 [script]
 ImageDir=$THEME_DIR
 ScriptFile=$THEME_DIR/stagetimer.script
@@ -74,17 +75,49 @@ EOF
 sudo tee "$THEME_DIR/stagetimer.script" > /dev/null << 'EOF'
 Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
 Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+logo.image = Image("splash.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
 EOF
+
+# Copy the custom splash logo directly from the Git repository
+if [ -f "$APP_DIR/splash.png" ]; then
+    sudo cp "$APP_DIR/splash.png" "$THEME_DIR/splash.png"
+    echo "Custom splash screen logo applied from repository."
+else
+    # Fallback to black if no image is found in git
+    echo "No splash.png found in repository. Creating empty fallback."
+    sudo convert -size 800x600 xc:black "$THEME_DIR/splash.png"
+fi
+
 sudo plymouth-set-default-theme -R stagetimer
 
-# Hide Linux boot text
-CMDLINE="/boot/firmware/cmdline.txt"
-[ ! -f "$CMDLINE" ] && CMDLINE="/boot/cmdline.txt"
-sudo cp "$CMDLINE" "${CMDLINE}.bak"
-CURRENT_CMD=$(cat "$CMDLINE")
-NEW_CMD=$(echo "$CURRENT_CMD" | sed 's/ console=[a-zA-Z0-9,]*//g')
-NEW_CMD="$NEW_CMD console=tty3 quiet splash plymouth.ignore-serial-consoles logo.nologo vt.global_cursor_default=0"
-sudo bash -c "echo \"$NEW_CMD\" > \"$CMDLINE\""
+# Hide Linux boot text - More Robust cmdline.txt handling
+CMDLINE_FILES=("/boot/firmware/cmdline.txt" "/boot/cmdline.txt")
+for CMDLINE in "${CMDLINE_FILES[@]}"; do
+    if [ -f "$CMDLINE" ]; then
+        echo "[8/8] Hiding boot text in $CMDLINE..."
+        sudo cp "$CMDLINE" "${CMDLINE}.bak"
+        # Strip existing problematic console/quiet/splash parameters
+        sudo sed -i 's/console=serial0,115200//g' "$CMDLINE"
+        sudo sed -i 's/console=tty1//g' "$CMDLINE"
+        sudo sed -i 's/console=serial0//g' "$CMDLINE"
+        
+        # Append parameters at the end, ensuring vt.global_cursor_default=0,logo.nologo,vt.cur_default=0 are present
+        sudo tee -a "$CMDLINE" >/dev/null <<EOF
+ console=tty3 quiet splash vt.global_cursor_default=0 vt.cur_default=0 logo.nologo
+EOF
+        # Remove potential duplicates
+        sudo sed -i 's/ console=tty3 console=tty3/ console=tty3/g' "$CMDLINE"
+        sudo sed -i 's/ quiet quiet/ quiet/g' "$CMDLINE"
+        sudo sed -i 's/ splash splash/ splash/g' "$CMDLINE"
+        sudo sed -i 's/ vt.global_cursor_default=0 vt.global_cursor_default=0/ vt.global_cursor_default=0/g' "$CMDLINE"
+        sudo sed -i 's/ vt.cur_default=0 vt.cur_default=0/ vt.cur_default=0/g' "$CMDLINE"
+        sudo sed -i 's/ logo.nologo logo.nologo/ logo.nologo/g' "$CMDLINE"
+    fi
+done
 
 # Create the Node.js Server Service
 sudo tee /etc/systemd/system/stage-timer.service > /dev/null << EOF
