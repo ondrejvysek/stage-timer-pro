@@ -39,9 +39,9 @@ Once the SD card is flashed, insert it into the Raspberry Pi, connect your HDMI 
 2. SSH into the Raspberry Pi (replace YOUR\_USERNAME with the username you created):  
    ssh YOUR\_USERNAME@stagetimer.local  
 3. Once logged in, run the **One-Line Installer**:
-
-curl \-sSL \[https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/refs/heads/main/setup.sh?v=$RANDOM\](https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/refs/heads/main/setup.sh?v=$RANDOM) | bash
-
+```
+curl -sSL https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/refs/heads/main/setup.sh?v=$RANDOM | bash
+```
 ### **What the installer does:**
 
 * Installs Node.js, Chromium, and the X11 display manager.  
