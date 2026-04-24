@@ -19,8 +19,8 @@
         .card { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 25px; }
         h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim); margin: 0 0 15px 0; }
         
-        .monitor { aspect-ratio: 16/9; background: #000; border-radius: 15px; position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid #000; }
-        .monitor-time { font-family: monospace; font-size: 80px; font-weight: 900; color: #22c55e; }
+        .monitor { aspect-ratio: 16/9; background: #000; border-radius: 15px; position: relative; display: flex; align-items: center; justify-content: center; border: 1px solid #000; overflow: hidden; }
+        .monitor-time { font-family: monospace; font-size: 80px; font-weight: 900; color: #22c55e; z-index: 2; position: relative; transition: color 0.2s; }
         
         .msg-preview { margin-top: 15px; padding: 15px; border-radius: 12px; background: rgba(0,0,0,0.3); border-left: 4px solid var(--border); }
         .msg-status-badge { float: right; font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: 900; }
@@ -81,6 +81,11 @@
         .sys-btn { background: var(--blue); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .sys-btn-warn { background: var(--amber); }
         .sys-btn-danger { background: var(--red); }
+
+        /* Logo Management Specific Styles */
+        .logo-preview-box { width: 100%; height: 120px; background: #000; border: 1px solid #334155; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        .logo-preview-box img { max-width: 90%; max-height: 90%; object-fit: contain; }
+        .logo-empty-text { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
 
         .hidden { display: none; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -173,10 +178,12 @@
         </header>
 
         <div class="grid">
+            <!-- Left Side: Monitor, Modes, and Time Config -->
             <div class="side-left">
                 <section class="card" style="margin-bottom: 20px;">
                     <h2>Live Monitor</h2>
                     <div id="m-frame" class="monitor">
+                        <img id="m-logo-img" src="" class="hidden" style="position: absolute; max-width: 80%; max-height: 80%; object-fit: contain; opacity: 0.8; z-index: 1;">
                         <div id="m-time" class="monitor-time">10:00</div>
                     </div>
                     <div class="msg-preview">
@@ -197,7 +204,7 @@
                 </section>
 
                 <section class="card">
-                    <h2>Quick Presets & Custom</h2>
+                    <h2>Quick Presets & Custom Time</h2>
                     <div class="preset-grid">
                         <button onclick="api('reset',60)" class="btn-preset">1m</button>
                         <button onclick="api('reset',300)" class="btn-preset">5m</button>
@@ -213,6 +220,7 @@
                 </section>
             </div>
 
+            <!-- Right Side: Transports, Messages, and Logo -->
             <div class="side-right">
                 <section class="card" style="margin-bottom: 20px;">
                     <h2>Transport Controls</h2>
@@ -251,7 +259,7 @@
                     </div>
                 </section>
 
-                <section class="card">
+                <section class="card" style="margin-bottom: 20px;">
                     <h2>Messaging Control</h2>
                     <input type="text" id="minput" placeholder="Enter custom message..." class="msg-input" oninput="updateMsgText()">
                     <button id="btn-toggle" onclick="api('message/toggle')" class="btn btn-toggle btn-toggle-off" style="margin-bottom: 20px;">SHOW MESSAGE</button>
@@ -262,6 +270,20 @@
                     </div>
                     
                     <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid"></div>
+                </section>
+
+                <!-- Moved Logo Upload Under Messages -->
+                <section class="card">
+                    <h2>Event Logo Upload</h2>
+                    <div class="logo-preview-box" id="logo-preview-container">
+                        <span class="logo-empty-text" id="logo-empty-hint">No Logo Uploaded</span>
+                        <img id="logo-preview-img" src="" class="hidden">
+                    </div>
+                    <div class="custom-time-row">
+                        <input type="file" id="logo-input" accept="image/*" class="hidden" onchange="handleLogoSelection(this)">
+                        <button onclick="document.getElementById('logo-input').click()" class="btn-set" style="flex:1; padding: 15px;">UPLOAD LOGO</button>
+                        <button onclick="clearLogo()" class="btn-set" style="background: var(--red); flex:none; padding: 0 20px;">🗑️</button>
+                    </div>
                 </section>
             </div>
         </div>
@@ -377,21 +399,102 @@
             if(confirm('Pull updates and restart?')) fetch('/api/system/update');
         }
 
+        // Logo Upload Management
+        function handleLogoSelection(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64 = e.target.result;
+                // POST to backend
+                fetch('/api/system/logo/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64 })
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearLogo() {
+            if(confirm('Clear current logo?')) {
+                fetch('/api/system/logo/clear');
+                document.getElementById('logo-input').value = '';
+            }
+        }
+
+        function updateLogoUI(dataUrl) {
+            const hint = document.getElementById('logo-empty-hint');
+            const img = document.getElementById('logo-preview-img');
+            const monitorImg = document.getElementById('m-logo-img');
+            
+            if (dataUrl) {
+                hint.classList.add('hidden');
+                img.src = dataUrl;
+                img.classList.remove('hidden');
+                monitorImg.src = dataUrl;
+            } else {
+                hint.classList.remove('hidden');
+                img.classList.add('hidden');
+                monitorImg.src = '';
+                monitorImg.classList.add('hidden');
+            }
+        }
+
         socket.on('stateUpdate', s => {
             document.getElementById('ip-display').innerText = s.ip;
             document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
+            // Handle logo data if present in state
+            if (s.logoData) {
+                updateLogoUI(s.logoData);
+            } else {
+                updateLogoUI(null);
+            }
+
             document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo').forEach(btn => {
                 btn.style.border = '1px solid transparent'; btn.style.color = '#fff';
             });
             const activeBtn = document.getElementById('mode-' + s.mode);
             if(activeBtn) { activeBtn.style.border = '1px solid #60a5fa'; activeBtn.style.color = '#60a5fa'; }
 
-            if (s.mode === 'timeofday') { document.getElementById('m-time').innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'}); } 
-            else if (s.mode === 'logo') { document.getElementById('m-time').innerText = "IDLE"; } 
-            else {
-                const abs = Math.abs(s.timeLeft);
-                document.getElementById('m-time').innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+            const monitorTime = document.getElementById('m-time');
+            const monitorLogo = document.getElementById('m-logo-img');
+
+            if (s.mode === 'logo') {
+                monitorTime.classList.add('hidden');
+                if (s.logoData) {
+                    monitorLogo.classList.remove('hidden');
+                } else {
+                    monitorTime.innerText = "IDLE";
+                    monitorTime.style.color = '#22c55e';
+                    monitorTime.classList.remove('hidden');
+                }
+            } else {
+                monitorTime.classList.remove('hidden');
+                monitorLogo.classList.add('hidden');
+                
+                if (s.mode === 'timeofday') { 
+                    monitorTime.innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'}); 
+                    monitorTime.style.color = '#22c55e';
+                } else {
+                    const abs = Math.abs(s.timeLeft);
+                    monitorTime.innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+                    
+                    // Match Presenter View Colors
+                    if (s.mode === 'countdown') {
+                        if (s.timeLeft <= 0) {
+                            monitorTime.style.color = s.blink_state ? '#000000' : '#ef4444'; // Blink or Solid Red
+                        } else if (s.timeLeft <= 120) {
+                            monitorTime.style.color = '#f97316'; // Warning Orange
+                        } else {
+                            monitorTime.style.color = '#22c55e'; // Default Green
+                        }
+                    } else {
+                        monitorTime.style.color = '#22c55e'; // Default Green for Countup
+                    }
+                }
             }
             
             document.getElementById('msg-preview-text').innerText = s.message || "None";

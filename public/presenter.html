@@ -81,6 +81,8 @@
 <body>
     <div id="ip-overlay">Connecting...</div>
 
+    <img id="logo-display" src="" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 85vw; max-height: 85vh; object-fit: contain; display: none;">
+
     <div id="clock-container"><div id="clock">10:00</div></div>
     
     <div id="msg-container">
@@ -99,6 +101,7 @@
         const msgContainer = document.getElementById('msg-container');
         const msgText = document.getElementById('msg-text');
         const ipOverlay = document.getElementById('ip-overlay');
+        const logoDisplay = document.getElementById('logo-display');
 
         let currentMode = 'countdown';
         let localTimeInterval = null;
@@ -114,6 +117,8 @@
             document.body.className = '';
 
             if (state.mode === 'timeofday') {
+                logoDisplay.style.display = 'none';
+                document.getElementById('clock-container').style.display = 'flex';
                 if (!localTimeInterval) {
                     localTimeInterval = setInterval(() => {
                         if(currentMode === 'timeofday') {
@@ -127,12 +132,25 @@
                 document.getElementById('progress-container').style.display = 'none';
                 
             } else if (state.mode === 'logo') {
-                clock.innerText = "EVENT LOGO";
-                clock.style.fontSize = "12vw";
-                clock.style.opacity = "0.5";
+                // Improved safety check to ensure it correctly identifies a loaded logo
+                if (state.logoData && state.logoData.length > 50) {
+                    if (logoDisplay.getAttribute('src') !== state.logoData) {
+                        logoDisplay.setAttribute('src', state.logoData);
+                    }
+                    logoDisplay.style.display = 'block';
+                    document.getElementById('clock-container').style.display = 'none';
+                } else {
+                    logoDisplay.style.display = 'none';
+                    document.getElementById('clock-container').style.display = 'flex';
+                    clock.innerText = "EVENT LOGO";
+                    clock.style.fontSize = "12vw";
+                    clock.style.opacity = "0.5";
+                }
                 document.getElementById('progress-container').style.display = 'none';
 
             } else {
+                logoDisplay.style.display = 'none';
+                document.getElementById('clock-container').style.display = 'flex';
                 document.getElementById('progress-container').style.display = 'block';
                 const absTime = Math.abs(state.timeLeft);
                 const mins = Math.floor(absTime / 60);

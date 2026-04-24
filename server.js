@@ -7,6 +7,8 @@ const fs = require('fs');
 const { exec } = require('child_process');
 
 const app = express();
+// Enable large payload support for Base64 image uploads
+app.use(express.json({ limit: '10mb' }));
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -25,10 +27,14 @@ function getNetworkInfo() {
 
 const netInfo = getNetworkInfo();
 
-// --- PERSISTENT MESSAGES SETUP ---
+// --- PERSISTENCE SETUP ---
 const messagesFile = path.join(__dirname, 'messages.json');
-let quickMessages = ['Wrap Up Now', 'Q&A Starting', '5 Minutes Left', 'Speak Up'];
+const logoFile = path.join(__dirname, 'logo.json');
 
+let quickMessages = ['Wrap Up Now', 'Q&A Starting', '5 Minutes Left', 'Speak Up'];
+let logoData = "";
+
+// Load Messages
 try {
     if (fs.existsSync(messagesFile)) {
         quickMessages = JSON.parse(fs.readFileSync(messagesFile, 'utf8'));
@@ -44,6 +50,16 @@ function saveMessages() {
     catch (e) { console.error("Could not save messages.json", e); }
 }
 
+// Load Logo
+try {
+    if (fs.existsSync(logoFile)) {
+        const parsed = JSON.parse(fs.readFileSync(logoFile, 'utf8'));
+        if (parsed && parsed.image) logoData = parsed.image;
+    }
+} catch (e) {
+    console.error("Could not load logo.json", e);
+}
+
 // --- APP STATE ---
 let state = {
     timeLeft: 600,
@@ -54,6 +70,7 @@ let state = {
     mode: 'countdown', // countdown, countup, timeofday, logo
     ip: netInfo.ip,
     netmask: netInfo.mask,
+    logoData: logoData,
     blink_state: false
 };
 
@@ -152,6 +169,27 @@ app.get('/api/message/trigger', (req, res) => {
     } else {
         res.status(400).send('Invalid Message Index');
     }
+});
+
+// --- LOGO UPLOAD ENDPOINTS ---
+app.post('/api/system/logo/upload', (req, res) => {
+    if (req.body && req.body.image) {
+        state.logoData = req.body.image;
+        fs.writeFileSync(logoFile, JSON.stringify({ image: state.logoData }));
+        broadcast();
+        res.send('Logo Uploaded');
+    } else {
+        res.status(400).send('No Image Data Received');
+    }
+});
+
+app.get('/api/system/logo/clear', (req, res) => {
+    state.logoData = "";
+    if (fs.existsSync(logoFile)) {
+        fs.unlinkSync(logoFile);
+    }
+    broadcast();
+    res.send('Logo Cleared');
 });
 
 // --- SYSTEM CONTROLS ---
