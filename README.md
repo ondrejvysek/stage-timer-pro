@@ -4,6 +4,11 @@ A robust, professional stage timer system built for live events, running on a Ra
 
 The system features a centralized Node.js backend, a responsive web-based **Moderator UI** for operators, and a fully autonomous Wayland/X11 **Presenter Kiosk** that outputs directly to an HDMI display. It is designed to be highly resilient, featuring offline font fallbacks, a custom Boot Splash Screen, an automatic Wi-Fi Access Point if the primary network drops, and deep integrations for professional environments.
 
+If you like the project, you can support future development:
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ondrejv)
+
+
 [See more examples](#examples) 
 
 <img width="1127" height="1005" alt="image" src="https://github.com/user-attachments/assets/639e74db-8169-4792-8475-c3c02b5e43f6" />
