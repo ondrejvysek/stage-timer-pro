@@ -11,18 +11,19 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // --- IP DETECTION ---
-function getLocalIp() {
+function getNetworkInfo() {
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
         for (const iface of interfaces[name]) {
             if (iface.family === 'IPv4' && !iface.internal) {
-                // Now includes Subnet Mask
-                return `${iface.address} (Mask: ${iface.netmask})`;
+                return { ip: iface.address, mask: iface.netmask };
             }
         }
     }
-    return '127.0.0.1';
+    return { ip: '127.0.0.1', mask: '255.0.0.0' };
 }
+
+const netInfo = getNetworkInfo();
 
 // --- PERSISTENT MESSAGES SETUP ---
 const messagesFile = path.join(__dirname, 'messages.json');
@@ -51,7 +52,8 @@ let state = {
     message: "",
     showMessage: false,
     mode: 'countdown', // countdown, countup, timeofday, logo
-    ip: getLocalIp(),
+    ip: netInfo.ip,
+    netmask: netInfo.mask,
     blink_state: false
 };
 
@@ -162,7 +164,6 @@ app.get('/api/system/restart', (req, res) => {
 
 app.get('/api/system/update', (req, res) => {
     res.send('Pulling Firmware and System Updates (This may take a few minutes)...');
-    // Now updates git, npm, AND the base OS packages
     const updateCmd = 'git pull && npm install && sudo apt update && sudo apt upgrade -y && sudo systemctl restart stage-timer';
     exec(updateCmd, { cwd: __dirname }, (error) => {
         if (error) console.error(`Update error: ${error}`);
@@ -229,7 +230,6 @@ app.get('/api/system/wifi/static', (req, res) => {
     res.send('IP Configured');
 });
 
-
 // Editable Quick Messages Endpoints
 app.get('/api/messages', (req, res) => res.json(quickMessages));
 
@@ -260,7 +260,6 @@ app.get('/api/companion', (req, res) => {
                     Math.floor(abs/60).toString().padStart(2,'0') + ":" + 
                     (abs%60).toString().padStart(2,'0');
     
-    // Creates a strictly overtime string (e.g., "+01:30")
     const overTimeStr = state.timeLeft < 0 
                         ? "+" + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0') 
                         : "";
@@ -273,7 +272,7 @@ app.get('/api/companion', (req, res) => {
         over_time: overTimeStr,
         mode: state.mode,
         blink_state: state.blink_state,
-        messages: quickMessages // <-- Publish the array so Companion can read it dynamically!
+        messages: quickMessages
     });
 });
 
@@ -283,7 +282,7 @@ function broadcast() {
 
 io.on('connection', (socket) => {
     socket.emit('stateUpdate', state);
-    socket.emit('messagesUpdate', quickMessages); // Send messages array immediately on connect
+    socket.emit('messagesUpdate', quickMessages); 
 });
 
 app.use(express.static(path.join(__dirname, 'public')));

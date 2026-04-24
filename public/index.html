@@ -33,8 +33,7 @@
         .btn-start { background: var(--green); height: 120px; font-size: 18px; letter-spacing: 1px; }
         .btn-pause { background: var(--amber); height: 120px; font-size: 18px; letter-spacing: 1px; }
         .btn-reset { background: #475569; height: 120px; font-size: 18px; letter-spacing: 1px; }
-        .btn-blue { background: rgba(37, 99, 235, 0.1); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); padding: 15px; cursor: pointer; transition: all 0.2s; }
-        .btn-blue:hover { background: rgba(37, 99, 235, 0.2); }
+        .btn-blue { background: rgba(37, 99, 235, 0.1); color: #60a5fa; border: 1px solid rgba(37, 99, 235, 0.2); padding: 15px; cursor: pointer; }
         .btn-dim { background: #334155; color: #94a3b8; padding: 15px; }
 
         .btn-toggle { height: 60px; width: 100%; margin-top: 10px; border-radius: 12px; }
@@ -44,80 +43,35 @@
         .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
         .preset-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
         .preset-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-        
         .btn-preset { background: rgba(71, 85, 105, 0.4); border: 1px solid transparent; padding: 15px; border-radius: 12px; color: #fff; font-weight: 900; cursor: pointer; transition: all 0.2s; }
         .btn-preset:hover { background: rgba(71, 85, 105, 0.6); }
 
         .btn-msg-bank {
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            border: 1px solid #334155;
-            padding: 15px 15px 15px 40px; 
-            border-radius: 12px;
-            color: #fff;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-            text-align: left;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background: linear-gradient(145deg, #1e293b, #0f172a); border: 1px solid #334155; padding: 15px 15px 15px 40px; border-radius: 12px; color: #fff; font-weight: 700; cursor: pointer; transition: all 0.2s; position: relative; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
         }
-        .btn-msg-bank:hover {
-            border-color: #60a5fa;
-            background: linear-gradient(145deg, #1e293b, #1e293b);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-        }
-        .msg-number-badge {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #334155;
-            color: #94a3b8;
-            font-size: 10px;
-            font-weight: 900;
-            padding: 4px 6px;
-            border-radius: 6px;
-        }
+        .msg-number-badge { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); background: #334155; color: #94a3b8; font-size: 10px; font-weight: 900; padding: 4px 6px; border-radius: 6px; }
 
         .custom-time-row { display: flex; gap: 10px; align-items: stretch; }
-        .input-compact, .msg-input { background: #0f172a; border: 1px solid #334155; border-radius: 12px; color: #fff; padding: 15px; font-weight: 700; outline: none; font-size: 14px; transition: border-color 0.2s;}
+        .input-compact, .msg-input { background: #0f172a; border: 1px solid #334155; border-radius: 12px; color: #fff; padding: 15px; font-weight: 700; outline: none; font-size: 14px; }
         .input-compact { flex: 1; }
         .msg-input { width: 100%; margin-bottom: 10px; }
-        .input-compact:focus, .msg-input:focus { border-color: var(--blue); }
-
         .btn-set { background: var(--blue); padding: 0 25px; border-radius: 12px; border: none; color: #fff; font-weight: 900; cursor: pointer; font-size: 12px; letter-spacing: 1px; }
         
         .ip-badge { background: #1e293b; padding: 8px 15px; border-radius: 8px; font-family: monospace; border: 1px solid #334155; font-size: 14px; color: #60a5fa;}
-        .btn-header-danger { background: rgba(220, 38, 38, 0.1); color: var(--red); border: 1px solid rgba(220, 38, 38, 0.3); padding: 8px 15px; border-radius: 8px; font-weight: 900; font-size: 12px; cursor: pointer; margin-left: 10px; letter-spacing: 1px; transition: all 0.2s; }
-        .btn-header-danger:hover { background: rgba(220, 38, 38, 0.2); }
+        .btn-header-danger { background: rgba(220, 38, 38, 0.1); color: var(--red); border: 1px solid rgba(220, 38, 38, 0.3); padding: 8px 15px; border-radius: 8px; font-weight: 900; font-size: 12px; cursor: pointer; margin-left: 10px; letter-spacing: 1px;}
 
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s;
-        }
+        /* System Settings Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        .modal-content {
-            background: var(--card); border: 1px solid var(--border);
-            padding: 30px; border-radius: 24px; max-width: 400px; text-align: center;
-            transform: translateY(20px); transition: transform 0.2s;
-        }
+        .modal-content { background: var(--card); border: 1px solid var(--border); padding: 30px; border-radius: 24px; width: 500px; max-height: 90vh; overflow-y: auto; transform: translateY(20px); transition: transform 0.2s; }
         .modal-overlay.active .modal-content { transform: translateY(0); }
-        .modal-title { color: var(--red); font-size: 20px; font-weight: 900; letter-spacing: 2px; margin-top: 0; margin-bottom: 15px; }
-        .modal-text { color: var(--text-dim); line-height: 1.5; margin-bottom: 25px; }
-
-        #settings-modal .modal-content { max-width: 500px; max-height: 90vh; overflow-y: auto; text-align: left; }
-        #settings-modal .modal-title { color: #fff; display: flex; justify-content: space-between; align-items: center; }
-        .sys-group { background: #0f172a; padding: 20px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; text-align: left; }
+        .modal-title { color: #fff; font-size: 20px; font-weight: 900; letter-spacing: 1px; margin-top: 0; margin-bottom: 20px; display: flex; justify-content: space-between;}
+        
+        .sys-group { background: #0f172a; padding: 20px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; }
         .sys-group h3 { margin: 0 0 15px 0; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
         .sys-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .sys-input { flex: 1; background: #1e293b; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 8px; font-family: monospace; }
-        .sys-btn { background: var(--blue); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;}
+        .sys-input { flex: 1; background: #1e293b; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 8px; font-family: monospace;}
+        .sys-btn { background: var(--blue); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .sys-btn-warn { background: var(--amber); }
         .sys-btn-danger { background: var(--red); }
         select.sys-input { appearance: none; }
@@ -127,23 +81,12 @@
     </style>
 </head>
 <body>
-    <div id="restart-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title">SYSTEM RESTART</h3>
-            <p class="modal-text">Are you sure you want to restart the Stage Timer service? The timer will be interrupted and the presenter screen will briefly go blank.</p>
-            <div class="btn-grid">
-                <button onclick="closeRestartModal()" class="btn btn-dim" style="height: auto; padding: 15px;">CANCEL</button>
-                <button onclick="confirmRestart()" class="btn btn-toggle-on" style="height: auto; padding: 15px;">RESTART</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-title">
                 SYSTEM SETTINGS
-                <button onclick="closeSettings()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+                <button onclick="closeSettings()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
             </div>
             
             <div class="sys-group">
@@ -163,6 +106,7 @@
 
             <div class="sys-group">
                 <h3>Static IP (For Current Wi-Fi)</h3>
+                <p id="current-ip-info" style="font-size: 11px; color: var(--text-dim); margin-top: -10px; margin-bottom: 10px;">Current Netmask: Loading...</p>
                 <div class="sys-row">
                     <input type="text" id="static-ip" class="sys-input" placeholder="IP (e.g. 192.168.1.50/24)">
                     <input type="text" id="static-gw" class="sys-input" placeholder="Gateway (192.168.1.1)">
@@ -176,21 +120,32 @@
             <div class="sys-group">
                 <h3>Access Point (Fallback)</h3>
                 <div class="sys-row">
-                    <button onclick="toggleAP('on')" class="sys-btn" style="flex:1; background: var(--green);">TURN ON AP</button>
-                    <button onclick="toggleAP('down')" class="sys-btn sys-btn-danger" style="flex:1;">TURN OFF AP</button>
+                    <button onclick="fetch('/api/system/ap?action=on')" class="sys-btn" style="flex:1; background: var(--green);">TURN ON AP</button>
+                    <button onclick="fetch('/api/system/ap?action=down')" class="sys-btn sys-btn-danger" style="flex:1;">TURN OFF AP</button>
                 </div>
-                <p id="ap-status" style="font-size: 11px; color: var(--text-dim); margin: 5px 0 0 0; font-weight: bold;">Status: Checking...</p>
             </div>
 
             <div class="sys-group">
                 <h3>System Management</h3>
                 <div class="sys-row">
                     <input type="text" id="sys-hostname" class="sys-input" placeholder="New Hostname">
-                    <button onclick="setHostname()" class="sys-btn">SET HOSTNAME</button>
+                    <button onclick="setHostname()" class="sys-btn">SET</button>
                 </div>
                 <div class="sys-row" style="margin-top: 15px;">
-                    <button onclick="updateFirmware()" class="sys-btn sys-btn-warn" style="flex: 1;">PULL FIRMWARE & SYSTEM UPDATES</button>
+                    <button onclick="updateFirmware()" class="sys-btn sys-btn-warn" style="flex: 1;">PULL FIRMWARE UPDATE (GIT)</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restart Modal -->
+    <div id="restart-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 400px; text-align: center;">
+            <h3 style="color: var(--red); margin-top:0;">SYSTEM RESTART</h3>
+            <p style="color: var(--text-dim); margin-bottom: 25px;">Are you sure you want to restart the Stage Timer service?</p>
+            <div class="btn-grid">
+                <button onclick="document.getElementById('restart-modal').classList.remove('active')" class="btn btn-dim" style="padding: 15px;">CANCEL</button>
+                <button onclick="confirmRestart()" class="btn btn-toggle-on" style="padding: 15px;">RESTART</button>
             </div>
         </div>
     </div>
@@ -200,8 +155,8 @@
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
             <div style="display: flex; align-items: center;">
                 <div class="ip-badge" id="ip-display">Connecting...</div>
-                <button onclick="openSettings()" class="btn-header-danger" style="color: #fff; background: var(--card); border-color: var(--border);">⚙️ SETTINGS</button>
-                <button onclick="openRestartModal()" class="btn-header-danger">RESTART</button>
+                <button onclick="document.getElementById('settings-modal').classList.add('active')" class="btn-header-danger" style="background:var(--card); color:white; border-color:var(--border);">⚙️ SETTINGS</button>
+                <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger">RESTART</button>
             </div>
         </header>
 
@@ -265,12 +220,10 @@
                     
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; margin-top: 10px;">
                         <h2 style="margin: 0;">Quick Message Bank (Instant Live)</h2>
-                        <button onclick="addQuickMessage()" class="btn-blue" style="padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 900; letter-spacing: 1px;">+ SAVE PRESET</button>
+                        <button onclick="addQuickMessage()" class="btn-blue" style="padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 900; letter-spacing: 1px;">+ SAVE</button>
                     </div>
                     
-                    <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid">
-                        <!-- Populated dynamically by Socket.io -->
-                    </div>
+                    <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid"></div>
                 </section>
             </div>
         </div>
@@ -278,74 +231,22 @@
 
     <script>
         const socket = io();
-        function api(c, v=""){ 
-            const val = String(v); // Force numbers to become strings
-            fetch(`/api/${c}${val ? (val.startsWith('?') ? val : '?sec='+val) : ''}`); 
-        }
-        function updateMsgText(){ 
-            const text = document.getElementById('minput').value;
-            fetch(`/api/message/set?text=${encodeURIComponent(text)}`);
-        }
-        function triggerMsg(index) {
-            fetch(`/api/message/trigger?index=${index}`);
-        }
-        function setCustomTime() {
-            const mins = document.getElementById('custom-min').value;
-            if (mins) api('reset', parseInt(mins) * 60);
-        }
-
+        function api(c, v=""){ fetch(`/api/${c}${v ? (v.startsWith('?') ? v : '?sec='+v) : ''}`); }
+        function updateMsgText(){ fetch(`/api/message/set?text=${encodeURIComponent(document.getElementById('minput').value)}`); }
+        function setCustomTime() { const mins = document.getElementById('custom-min').value; if (mins) api('reset', parseInt(mins) * 60); }
         function addQuickMessage() {
             const text = document.getElementById('minput').value.trim();
-            if(text) {
-                fetch(`/api/messages/add?text=${encodeURIComponent(text)}`);
-                document.getElementById('minput').value = '';
-            } else {
-                const input = document.getElementById('minput');
-                input.style.borderColor = 'var(--red)';
-                setTimeout(() => input.style.borderColor = 'var(--border)', 800);
-            }
+            if(text) { fetch(`/api/messages/add?text=${encodeURIComponent(text)}`); document.getElementById('minput').value = ''; }
         }
 
-        function openRestartModal() { document.getElementById('restart-modal').classList.add('active'); }
-        function closeRestartModal() { document.getElementById('restart-modal').classList.remove('active'); }
+        // --- System Management Functions ---
+        function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
         function confirmRestart() {
             fetch('/api/system/restart');
-            closeRestartModal();
-            const ipDisplay = document.getElementById('ip-display');
-            if(ipDisplay) {
-                ipDisplay.innerText = "RESTARTING...";
-                ipDisplay.style.color = "var(--red)";
-                ipDisplay.style.borderColor = "var(--red)";
-                ipDisplay.style.animation = "pulse 1s infinite";
-            }
+            document.getElementById('restart-modal').classList.remove('active');
             setTimeout(() => { window.location.reload(); }, 4000);
         }
-
-        // --- System Settings Management ---
-        function openSettings() { 
-            document.getElementById('settings-modal').classList.add('active'); 
-            checkApStatus();
-        }
-        function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
-
-        async function checkApStatus() {
-            try {
-                const res = await fetch('/api/system/ap/status');
-                const data = await res.json();
-                const statusText = document.getElementById('ap-status');
-                statusText.innerText = data.active ? "Status: ACTIVE (Broadcasting)" : "Status: INACTIVE";
-                statusText.style.color = data.active ? "var(--green)" : "var(--text-dim)";
-            } catch(e) {}
-        }
-
-        async function toggleAP(action) {
-            document.getElementById('ap-status').innerText = "Changing status...";
-            document.getElementById('ap-status').style.color = "var(--amber)";
-            await fetch(`/api/system/ap?action=${action}`);
-            // Give network manager a moment to apply before checking again
-            setTimeout(checkApStatus, 3000);
-        }
-
+        
         async function scanWifi() {
             document.getElementById('wifi-status').innerText = "Scanning...";
             const res = await fetch('/api/system/wifi/scan');
@@ -377,7 +278,7 @@
             const gw = document.getElementById('static-gw').value;
             if(!ssid || !ip || !gw) { alert('Select a Wi-Fi network above, and enter both IP and Gateway.'); return; }
             fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(ip)}&gateway=${encodeURIComponent(gw)}`);
-            alert('Static IP Applied. Reconnecting...');
+            alert('Static IP Applied to connection.');
         }
 
         function setAutoIP() {
@@ -393,25 +294,17 @@
         }
 
         function updateFirmware() {
-            if(confirm('This will pull the latest code, update OS packages, and restart. This may take a few minutes. Continue?')) {
+            if(confirm('This will pull the latest code from GitHub and restart the app. Continue?')) {
                 fetch('/api/system/update');
-                closeSettings();
-                document.getElementById('ip-display').innerText = "UPDATING OS...";
-                document.getElementById('ip-display').style.color = "var(--amber)";
-                document.getElementById('ip-display').style.borderColor = "var(--amber)";
-                setTimeout(() => { window.location.reload(); }, 30000); // Gives it 30 seconds before reloading
+                setTimeout(() => { window.location.reload(); }, 5000);
             }
         }
 
-        // --- Socket & Dynamic Rendering ---
+        // --- UI Updates ---
         socket.on('stateUpdate', s => {
-            const ipDisplay = document.getElementById('ip-display');
-            if (ipDisplay.innerText !== "RESTARTING..." && ipDisplay.innerText !== "UPDATING OS...") {
-                ipDisplay.innerText = s.ip;
-                ipDisplay.style.color = "";
-                ipDisplay.style.borderColor = "";
-                ipDisplay.style.animation = "";
-            }
+            // Keep top-right clean, push netmask logic down to settings
+            document.getElementById('ip-display').innerText = s.ip;
+            document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
             document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo').forEach(btn => {
                 btn.style.border = '1px solid transparent'; btn.style.color = '#fff';
@@ -419,11 +312,9 @@
             const activeBtn = document.getElementById('mode-' + s.mode);
             if(activeBtn) { activeBtn.style.border = '1px solid #60a5fa'; activeBtn.style.color = '#60a5fa'; }
 
-            if (s.mode === 'timeofday') {
-                document.getElementById('m-time').innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'});
-            } else if (s.mode === 'logo') {
-                document.getElementById('m-time').innerText = "IDLE";
-            } else {
+            if (s.mode === 'timeofday') { document.getElementById('m-time').innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'}); } 
+            else if (s.mode === 'logo') { document.getElementById('m-time').innerText = "IDLE"; } 
+            else {
                 const abs = Math.abs(s.timeLeft);
                 document.getElementById('m-time').innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
             }
@@ -433,15 +324,11 @@
             const toggleBtn = document.getElementById('btn-toggle');
             
             if(s.showMessage) {
-                badge.innerText = "LIVE ON STAGE";
-                badge.className = "msg-status-badge status-live";
-                toggleBtn.innerText = "HIDE MESSAGE";
-                toggleBtn.className = "btn btn-toggle btn-toggle-on";
+                badge.innerText = "LIVE ON STAGE"; badge.className = "msg-status-badge status-live";
+                toggleBtn.innerText = "HIDE MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-on";
             } else {
-                badge.innerText = "OFF AIR";
-                badge.className = "msg-status-badge status-off";
-                toggleBtn.innerText = "SHOW MESSAGE";
-                toggleBtn.className = "btn btn-toggle btn-toggle-off";
+                badge.innerText = "OFF AIR"; badge.className = "msg-status-badge status-off";
+                toggleBtn.innerText = "SHOW MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-off";
             }
 
             document.getElementById('b-start').classList.toggle('hidden', s.isRunning);
@@ -453,52 +340,23 @@
             grid.innerHTML = '';
             msgs.forEach((msg, index) => {
                 const wrapper = document.createElement('div');
-                wrapper.style.position = 'relative';
-                wrapper.style.display = 'flex';
+                wrapper.style.position = 'relative'; wrapper.style.display = 'flex';
                 
                 const btn = document.createElement('button');
                 btn.className = "btn-msg-bank";
-                
-                const numSpan = document.createElement('span');
-                numSpan.className = "msg-number-badge";
-                numSpan.innerText = index + 1;
-                
-                const textSpan = document.createElement('span');
-                textSpan.innerText = msg;
-                
-                btn.appendChild(numSpan);
-                btn.appendChild(textSpan);
-                
-                btn.title = msg;
-                btn.onclick = () => triggerMsg(index);
+                btn.innerHTML = `<span class="msg-number-badge">${index + 1}</span><span>${msg}</span>`;
+                btn.onclick = () => fetch(`/api/message/trigger?index=${index}`);
                 
                 const delBtn = document.createElement('button');
                 delBtn.innerHTML = '×';
-                delBtn.style.position = "absolute";
-                delBtn.style.right = "8px";
-                delBtn.style.top = "50%";
-                delBtn.style.transform = "translateY(-50%)";
-                delBtn.style.background = "none";
-                delBtn.style.border = "none";
-                delBtn.style.color = "#ef4444";
-                delBtn.style.fontSize = "22px";
-                delBtn.style.lineHeight = "1";
-                delBtn.style.cursor = "pointer";
-                delBtn.style.opacity = "0";
-                delBtn.style.transition = "opacity 0.2s";
+                delBtn.style.cssText = "position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer; opacity:0; transition:opacity 0.2s;";
                 
                 wrapper.onmouseover = () => delBtn.style.opacity = "0.8";
                 wrapper.onmouseout = () => delBtn.style.opacity = "0";
                 delBtn.onmouseover = () => delBtn.style.opacity = "1";
+                delBtn.onclick = (e) => { e.stopPropagation(); fetch(`/api/messages/remove?index=${index}`); };
                 
-                delBtn.onclick = (e) => { 
-                    e.stopPropagation(); 
-                    fetch(`/api/messages/remove?index=${index}`);
-                };
-                
-                wrapper.appendChild(btn);
-                wrapper.appendChild(delBtn);
-                grid.appendChild(wrapper);
+                wrapper.appendChild(btn); wrapper.appendChild(delBtn); grid.appendChild(wrapper);
             });
         });
     </script>

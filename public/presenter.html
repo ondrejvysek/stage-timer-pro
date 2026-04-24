@@ -5,6 +5,7 @@
     <title>Presenter View | Stage Timer Pro</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
+        /* Attempt to load web fonts, but provide robust, smooth local fallbacks if offline */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&family=JetBrains+Mono:wght@700&display=swap');
         
         :root {
@@ -20,7 +21,7 @@
             margin: 0; 
             background-color: var(--bg); 
             color: var(--text); 
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             overflow: hidden; 
             height: 100vh; 
             display: flex; 
@@ -34,8 +35,9 @@
 
         #clock-container { width: 100%; display: flex; justify-content: center; align-items: center; }
 
+        /* The font-family here adds system-level monospace fallbacks so it stays smooth offline! */
         #clock { 
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'JetBrains Mono', 'DejaVu Sans Mono', 'Liberation Mono', Consolas, Monaco, monospace;
             font-size: 28vw;
             font-weight: 700; 
             font-variant-numeric: tabular-nums; 
@@ -62,37 +64,24 @@
             to { transform: scale(1) translateY(0); opacity: 1; } 
         }
 
-        /* Progress Bar */
         #progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 2vh; background: rgba(255,255,255,0.1); }
         #progress-bar { height: 100%; background: #22c55e; width: 100%; transition: width 1s linear, background-color 1s linear; }
 
-        /* States */
         body.state-warn { background-color: var(--warn); color: white; }
         
-        /* Pulsing Danger Border */
+        /* Removed heavy box-shadow animation to prevent lag. Uses standard solid background color now. */
         body.state-danger { 
             background-color: var(--danger); 
             color: white; 
-            box-shadow: inset 0 0 100px 30px rgba(150,0,0,0.8);
-            animation: danger-pulse 1s infinite alternate;
-        }
-        @keyframes danger-pulse {
-            0% { box-shadow: inset 0 0 50px 10px rgba(150,0,0,0.5); }
-            100% { box-shadow: inset 0 0 250px 80px rgba(100,0,0,1); }
         }
 
-        /* IP Overlay for Crew Boot-up */
-        #ip-overlay {
-            position: absolute; top: 2vw; left: 2vw; color: rgba(255,255,255,0.4); font-family: monospace; font-size: 2vw; z-index: 100;
-        }
+        #ip-overlay { position: absolute; top: 2vw; left: 2vw; color: rgba(255,255,255,0.4); font-family: monospace; font-size: 2vw; z-index: 100; }
     </style>
 </head>
 <body>
     <div id="ip-overlay">Connecting...</div>
 
-    <div id="clock-container">
-        <div id="clock">10:00</div>
-    </div>
+    <div id="clock-container"><div id="clock">10:00</div></div>
     
     <div id="msg-container">
         <div class="message-box">
@@ -101,9 +90,7 @@
         </div>
     </div>
 
-    <div id="progress-container">
-        <div id="progress-bar"></div>
-    </div>
+    <div id="progress-container"><div id="progress-bar"></div></div>
 
     <script>
         const socket = io();
@@ -119,13 +106,11 @@
         socket.on('stateUpdate', (state) => {
             currentMode = state.mode;
 
-            // Handle IP Fadeout (Only runs once)
             if (state.ip && !ipOverlay.dataset.hidden) {
                 ipOverlay.innerText = "IP: " + state.ip;
                 setTimeout(() => { ipOverlay.style.display = 'none'; ipOverlay.dataset.hidden = 'true'; }, 15000);
             }
 
-            // Document body reset
             document.body.className = '';
 
             if (state.mode === 'timeofday') {
@@ -133,7 +118,7 @@
                     localTimeInterval = setInterval(() => {
                         if(currentMode === 'timeofday') {
                             clock.innerText = new Date().toLocaleTimeString('en-US', { hour12: false });
-                            clock.style.fontSize = (84 / (8 * 0.6)) + "vw"; // Static scale for HH:MM:SS
+                            clock.style.fontSize = (84 / (8 * 0.6)) + "vw";
                         }
                     }, 1000);
                     clock.innerText = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -142,14 +127,12 @@
                 document.getElementById('progress-container').style.display = 'none';
                 
             } else if (state.mode === 'logo') {
-                // The Custom "Idle" Branding Screen
                 clock.innerText = "EVENT LOGO";
                 clock.style.fontSize = "12vw";
                 clock.style.opacity = "0.5";
                 document.getElementById('progress-container').style.display = 'none';
 
             } else {
-                // Countdown & Count-Up Mode
                 document.getElementById('progress-container').style.display = 'block';
                 const absTime = Math.abs(state.timeLeft);
                 const mins = Math.floor(absTime / 60);
@@ -163,18 +146,14 @@
                 if (fontSizeVw > 28) fontSizeVw = 28;
                 clock.style.fontSize = fontSizeVw + "vw";
 
-                // Danger and Warning States (Only applies to countdowns)
                 if (state.mode === 'countdown') {
                     if (state.timeLeft <= 0) document.body.classList.add('state-danger');
                     else if (state.timeLeft <= 120) document.body.classList.add('state-warn');
                 }
 
-                // Smooth Progress Bar Math
                 if (state.mode === 'countdown') {
                     const progress = state.timeLeft <= 0 ? 0 : (state.timeLeft / state.initialTime) * 100;
                     progressBar.style.width = `${progress}%`;
-                    
-                    // Hue shifts from 120 (Green) to 0 (Red)
                     const hue = Math.max(0, (progress / 100) * 120);
                     progressBar.style.backgroundColor = `hsl(${hue}, 80%, 50%)`;
                 } else {
@@ -183,7 +162,6 @@
                 }
             }
 
-            // 5. Messages 
             if (state.showMessage && state.message) {
                 msgText.innerText = state.message;
                 msgContainer.style.display = 'flex';
