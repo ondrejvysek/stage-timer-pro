@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stage Timer Pro - Loading</title>
+    <style>
+        body { 
+            background: #000; 
+            color: #22c55e; 
+            font-family: sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            font-size: 4vw; 
+            font-weight: bold; 
+            text-align: center;
+        }
+        @keyframes pulse { 
+            0%, 100% { opacity: 1; } 
+            50% { opacity: 0.3; } 
+        }
+        .text { animation: pulse 2s infinite; }
+    </style>
+    <script>
+        function checkServer() {
+            // Ping the Node API. The server.js now has CORS enabled to allow this.
+            fetch('http://localhost:3000/api/state')
+                .then(response => {
+                    if (response.ok) {
+                        // Node is up! Redirect to the real presenter view
+                        window.location.replace('http://localhost:3000/presenter.html');
+                    } else {
+                        setTimeout(checkServer, 1000);
+                    }
+                })
+                .catch(() => {
+                    // Server is still booting, try again in 1 second
+                    setTimeout(checkServer, 1000);
+                });
+        }
+        // Start polling 1 second after launch
+        setTimeout(checkServer, 1000);
+    </script>
+</head>
+<body>
+    <div class="text">INITIALIZING STAGE TIMER PRO...</div>
+</body>
+</html>

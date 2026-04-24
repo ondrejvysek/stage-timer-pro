@@ -7,6 +7,13 @@ const fs = require('fs');
 const { exec } = require('child_process');
 
 const app = express();
+
+// --- CORS FIX FOR LOCAL LOADING SCREEN ---
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    next();
+});
+
 // Enable large payload support for Base64 image uploads
 app.use(express.json({ limit: '10mb' }));
 const server = http.createServer(app);
