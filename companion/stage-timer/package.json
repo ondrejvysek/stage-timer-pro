@@ -1,0 +1,16 @@
+{
+  "name": "companion-module-stage-timer",
+  "version": "1.0.0",
+  "main": "main.js",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "build": "companion-module-build"
+  },
+  "dependencies": {
+    "@companion-module/base": "^1.14.1"
+  },
+  "devDependencies": {
+    "@companion-module/tools": "^1.5.2"
+  }
+}

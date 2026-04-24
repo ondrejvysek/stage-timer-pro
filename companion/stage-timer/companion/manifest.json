@@ -1,0 +1,26 @@
+{
+  "id": "custom-stage-timer-pro",
+  "name": "Stage Timer Pro",
+  "shortname": "stagetimer",
+  "description": "Custom control module for the Stage Timer Pro API.",
+  "version": "1.0.0",
+  "license": "MIT",
+  "repository": "",
+  "bugs": "",
+  "maintainers": [
+    {
+      "name": "Studio Admin",
+      "email": "admin@example.com"
+    }
+  ],
+  "legacyIds": [],
+  "runtime": {
+    "type": "node18",
+    "api": "nodejs-ipc",
+    "apiVersion": "0.0.0",
+    "entrypoint": "../main.js"
+  },
+  "manufacturer": "Custom Studios",
+  "products": ["Stage Timer Pro"],
+  "keywords": ["timer", "stage", "clock"]
+}
