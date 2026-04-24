@@ -16,7 +16,8 @@ function getLocalIp() {
     for (const name of Object.keys(interfaces)) {
         for (const iface of interfaces[name]) {
             if (iface.family === 'IPv4' && !iface.internal) {
-                return iface.address;
+                // Now includes Subnet Mask
+                return `${iface.address} (Mask: ${iface.netmask})`;
             }
         }
     }
@@ -158,6 +159,76 @@ app.get('/api/system/restart', (req, res) => {
         if (error) console.error(`Restart error: ${error}`);
     });
 });
+
+app.get('/api/system/update', (req, res) => {
+    res.send('Pulling Firmware and System Updates (This may take a few minutes)...');
+    // Now updates git, npm, AND the base OS packages
+    const updateCmd = 'git pull && npm install && sudo apt update && sudo apt upgrade -y && sudo systemctl restart stage-timer';
+    exec(updateCmd, { cwd: __dirname }, (error) => {
+        if (error) console.error(`Update error: ${error}`);
+    });
+});
+
+app.get('/api/system/hostname', (req, res) => {
+    const name = req.query.name;
+    if(name) {
+        exec(`sudo hostnamectl set-hostname ${name}`);
+        res.send('Hostname updated.');
+    } else {
+        res.status(400).send('Missing name');
+    }
+});
+
+app.get('/api/system/ap', (req, res) => {
+    const action = req.query.action === 'on' ? 'up' : 'down';
+    exec(`sudo nmcli con ${action} StageTimer_Fallback`);
+    res.send(`AP ${action}`);
+});
+
+app.get('/api/system/ap/status', (req, res) => {
+    exec('nmcli -t -f NAME con show --active', (error, stdout) => {
+        if (error) return res.json({ active: false });
+        const isActive = stdout.includes('StageTimer_Fallback');
+        res.json({ active: isActive });
+    });
+});
+
+app.get('/api/system/wifi/scan', (req, res) => {
+    exec('sudo nmcli -t -f SSID,SIGNAL dev wifi list', (error, stdout) => {
+        if (error) return res.status(500).json([]);
+        const networks = [];
+        const seen = new Set();
+        stdout.split('\n').forEach(line => {
+            const [ssid, signal] = line.split(':');
+            if (ssid && ssid.trim() !== '' && !seen.has(ssid)) {
+                seen.add(ssid);
+                networks.push({ ssid, signal });
+            }
+        });
+        res.json(networks);
+    });
+});
+
+app.get('/api/system/wifi/connect', (req, res) => {
+    const { ssid, password } = req.query;
+    if (!ssid) return res.status(400).send('SSID required');
+    const cmd = password ? `sudo nmcli dev wifi connect "${ssid}" password "${password}"` : `sudo nmcli dev wifi connect "${ssid}"`;
+    exec(cmd, (error) => {
+        if (error) return res.status(500).send('Connection Failed');
+        res.send('Connected!');
+    });
+});
+
+app.get('/api/system/wifi/static', (req, res) => {
+    const { ssid, ip, gateway } = req.query;
+    if(ip === 'auto') {
+        exec(`sudo nmcli con modify "${ssid}" ipv4.method auto && sudo nmcli con up "${ssid}"`);
+    } else {
+        exec(`sudo nmcli con modify "${ssid}" ipv4.addresses ${ip} ipv4.gateway ${gateway} ipv4.method manual && sudo nmcli con up "${ssid}"`);
+    }
+    res.send('IP Configured');
+});
+
 
 // Editable Quick Messages Endpoints
 app.get('/api/messages', (req, res) => res.json(quickMessages));

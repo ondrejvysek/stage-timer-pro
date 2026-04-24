@@ -48,11 +48,10 @@
         .btn-preset { background: rgba(71, 85, 105, 0.4); border: 1px solid transparent; padding: 15px; border-radius: 12px; color: #fff; font-weight: 900; cursor: pointer; transition: all 0.2s; }
         .btn-preset:hover { background: rgba(71, 85, 105, 0.6); }
 
-        /* Nicer Styling specifically for the editable message bank buttons */
         .btn-msg-bank {
             background: linear-gradient(145deg, #1e293b, #0f172a);
             border: 1px solid #334155;
-            padding: 15px 15px 15px 40px; /* Room for number badge */
+            padding: 15px 15px 15px 40px; 
             border-radius: 12px;
             color: #fff;
             font-weight: 700;
@@ -112,6 +111,17 @@
         .modal-title { color: var(--red); font-size: 20px; font-weight: 900; letter-spacing: 2px; margin-top: 0; margin-bottom: 15px; }
         .modal-text { color: var(--text-dim); line-height: 1.5; margin-bottom: 25px; }
 
+        #settings-modal .modal-content { max-width: 500px; max-height: 90vh; overflow-y: auto; text-align: left; }
+        #settings-modal .modal-title { color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .sys-group { background: #0f172a; padding: 20px; border-radius: 15px; border: 1px solid #334155; margin-bottom: 15px; text-align: left; }
+        .sys-group h3 { margin: 0 0 15px 0; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+        .sys-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .sys-input { flex: 1; background: #1e293b; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 8px; font-family: monospace; }
+        .sys-btn { background: var(--blue); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;}
+        .sys-btn-warn { background: var(--amber); }
+        .sys-btn-danger { background: var(--red); }
+        select.sys-input { appearance: none; }
+
         .hidden { display: none; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
@@ -128,11 +138,69 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-title">
+                SYSTEM SETTINGS
+                <button onclick="closeSettings()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            
+            <div class="sys-group">
+                <h3>Wi-Fi Connection</h3>
+                <div class="sys-row">
+                    <button onclick="scanWifi()" class="sys-btn" style="width: 100%;">SCAN NETWORKS</button>
+                </div>
+                <div class="sys-row hidden" id="wifi-select-row">
+                    <select id="wifi-ssid" class="sys-input"></select>
+                </div>
+                <div class="sys-row hidden" id="wifi-pass-row">
+                    <input type="password" id="wifi-pass" class="sys-input" placeholder="Password (if needed)">
+                    <button onclick="connectWifi()" class="sys-btn">CONNECT</button>
+                </div>
+                <p id="wifi-status" style="font-size: 11px; color: var(--green); margin:0;"></p>
+            </div>
+
+            <div class="sys-group">
+                <h3>Static IP (For Current Wi-Fi)</h3>
+                <div class="sys-row">
+                    <input type="text" id="static-ip" class="sys-input" placeholder="IP (e.g. 192.168.1.50/24)">
+                    <input type="text" id="static-gw" class="sys-input" placeholder="Gateway (192.168.1.1)">
+                </div>
+                <div class="sys-row">
+                    <button onclick="setStaticIP()" class="sys-btn" style="flex:1;">APPLY STATIC</button>
+                    <button onclick="setAutoIP()" class="sys-btn sys-btn-warn" style="flex:1;">REVERT TO DHCP</button>
+                </div>
+            </div>
+
+            <div class="sys-group">
+                <h3>Access Point (Fallback)</h3>
+                <div class="sys-row">
+                    <button onclick="toggleAP('on')" class="sys-btn" style="flex:1; background: var(--green);">TURN ON AP</button>
+                    <button onclick="toggleAP('down')" class="sys-btn sys-btn-danger" style="flex:1;">TURN OFF AP</button>
+                </div>
+                <p id="ap-status" style="font-size: 11px; color: var(--text-dim); margin: 5px 0 0 0; font-weight: bold;">Status: Checking...</p>
+            </div>
+
+            <div class="sys-group">
+                <h3>System Management</h3>
+                <div class="sys-row">
+                    <input type="text" id="sys-hostname" class="sys-input" placeholder="New Hostname">
+                    <button onclick="setHostname()" class="sys-btn">SET HOSTNAME</button>
+                </div>
+                <div class="sys-row" style="margin-top: 15px;">
+                    <button onclick="updateFirmware()" class="sys-btn sys-btn-warn" style="flex: 1;">PULL FIRMWARE & SYSTEM UPDATES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
             <div style="display: flex; align-items: center;">
                 <div class="ip-badge" id="ip-display">Connecting...</div>
+                <button onclick="openSettings()" class="btn-header-danger" style="color: #fff; background: var(--card); border-color: var(--border);">⚙️ SETTINGS</button>
                 <button onclick="openRestartModal()" class="btn-header-danger">RESTART</button>
             </div>
         </header>
@@ -210,13 +278,15 @@
 
     <script>
         const socket = io();
-        function api(c, v=""){ fetch(`/api/${c}${v ? (v.startsWith('?') ? v : '?sec='+v) : ''}`); }
+        function api(c, v=""){ 
+            const val = String(v); // Force numbers to become strings
+            fetch(`/api/${c}${val ? (val.startsWith('?') ? val : '?sec='+val) : ''}`); 
+        }
         function updateMsgText(){ 
             const text = document.getElementById('minput').value;
             fetch(`/api/message/set?text=${encodeURIComponent(text)}`);
         }
         function triggerMsg(index) {
-            // Instantly sets the message and pushes it live
             fetch(`/api/message/trigger?index=${index}`);
         }
         function setCustomTime() {
@@ -251,9 +321,92 @@
             setTimeout(() => { window.location.reload(); }, 4000);
         }
 
+        // --- System Settings Management ---
+        function openSettings() { 
+            document.getElementById('settings-modal').classList.add('active'); 
+            checkApStatus();
+        }
+        function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
+
+        async function checkApStatus() {
+            try {
+                const res = await fetch('/api/system/ap/status');
+                const data = await res.json();
+                const statusText = document.getElementById('ap-status');
+                statusText.innerText = data.active ? "Status: ACTIVE (Broadcasting)" : "Status: INACTIVE";
+                statusText.style.color = data.active ? "var(--green)" : "var(--text-dim)";
+            } catch(e) {}
+        }
+
+        async function toggleAP(action) {
+            document.getElementById('ap-status').innerText = "Changing status...";
+            document.getElementById('ap-status').style.color = "var(--amber)";
+            await fetch(`/api/system/ap?action=${action}`);
+            // Give network manager a moment to apply before checking again
+            setTimeout(checkApStatus, 3000);
+        }
+
+        async function scanWifi() {
+            document.getElementById('wifi-status').innerText = "Scanning...";
+            const res = await fetch('/api/system/wifi/scan');
+            const networks = await res.json();
+            const select = document.getElementById('wifi-ssid');
+            select.innerHTML = '<option value="">Select a Network...</option>';
+            networks.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n.ssid; opt.innerText = `${n.ssid} (Signal: ${n.signal}%)`;
+                select.appendChild(opt);
+            });
+            document.getElementById('wifi-select-row').classList.remove('hidden');
+            document.getElementById('wifi-pass-row').classList.remove('hidden');
+            document.getElementById('wifi-status').innerText = "";
+        }
+
+        async function connectWifi() {
+            const ssid = document.getElementById('wifi-ssid').value;
+            const pass = document.getElementById('wifi-pass').value;
+            if(!ssid) return;
+            document.getElementById('wifi-status').innerText = "Connecting...";
+            const res = await fetch(`/api/system/wifi/connect?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`);
+            document.getElementById('wifi-status').innerText = await res.text();
+        }
+
+        function setStaticIP() {
+            const ssid = document.getElementById('wifi-ssid').value;
+            const ip = document.getElementById('static-ip').value;
+            const gw = document.getElementById('static-gw').value;
+            if(!ssid || !ip || !gw) { alert('Select a Wi-Fi network above, and enter both IP and Gateway.'); return; }
+            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(ip)}&gateway=${encodeURIComponent(gw)}`);
+            alert('Static IP Applied. Reconnecting...');
+        }
+
+        function setAutoIP() {
+            const ssid = document.getElementById('wifi-ssid').value;
+            if(!ssid) { alert('Select a Wi-Fi network above.'); return; }
+            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=auto`);
+            alert('Reverted to DHCP (Auto IP).');
+        }
+
+        function setHostname() {
+            const name = document.getElementById('sys-hostname').value;
+            if(name) { fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`); alert('Hostname set! Reboot required.'); }
+        }
+
+        function updateFirmware() {
+            if(confirm('This will pull the latest code, update OS packages, and restart. This may take a few minutes. Continue?')) {
+                fetch('/api/system/update');
+                closeSettings();
+                document.getElementById('ip-display').innerText = "UPDATING OS...";
+                document.getElementById('ip-display').style.color = "var(--amber)";
+                document.getElementById('ip-display').style.borderColor = "var(--amber)";
+                setTimeout(() => { window.location.reload(); }, 30000); // Gives it 30 seconds before reloading
+            }
+        }
+
+        // --- Socket & Dynamic Rendering ---
         socket.on('stateUpdate', s => {
             const ipDisplay = document.getElementById('ip-display');
-            if (ipDisplay.innerText !== "RESTARTING...") {
+            if (ipDisplay.innerText !== "RESTARTING..." && ipDisplay.innerText !== "UPDATING OS...") {
                 ipDisplay.innerText = s.ip;
                 ipDisplay.style.color = "";
                 ipDisplay.style.borderColor = "";
@@ -295,7 +448,6 @@
             document.getElementById('b-pause').classList.toggle('hidden', !s.isRunning);
         });
 
-        // Upgraded Quick Message Bank with Numbers and Instant Trigger
         socket.on('messagesUpdate', msgs => {
             const grid = document.getElementById('quick-messages-grid');
             grid.innerHTML = '';
@@ -307,12 +459,10 @@
                 const btn = document.createElement('button');
                 btn.className = "btn-msg-bank";
                 
-                // Number Badge
                 const numSpan = document.createElement('span');
                 numSpan.className = "msg-number-badge";
                 numSpan.innerText = index + 1;
                 
-                // Text Span
                 const textSpan = document.createElement('span');
                 textSpan.innerText = msg;
                 
@@ -320,7 +470,7 @@
                 btn.appendChild(textSpan);
                 
                 btn.title = msg;
-                btn.onclick = () => triggerMsg(index); // INSTANT TRIGGER ON CLICK
+                btn.onclick = () => triggerMsg(index);
                 
                 const delBtn = document.createElement('button');
                 delBtn.innerHTML = '×';
