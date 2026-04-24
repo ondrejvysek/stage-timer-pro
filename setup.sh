@@ -13,7 +13,7 @@ APP_DIR="$HOME/stage-timer"
 
 echo -e "\n[1/7] Updating system and installing dependencies..."
 sudo apt update
-sudo apt install -y git nodejs npm chromium xserver-xorg x11-xserver-utils xinit openbox network-manager fonts-dejavu fonts-liberation fonts-roboto plymouth plymouth-themes imagemagick curl
+sudo apt install -y git nodejs npm chromium xserver-xorg x11-xserver-utils xinit openbox network-manager fonts-dejavu fonts-liberation fonts-roboto plymouth plymouth-themes imagemagick
 
 echo -e "\n[2/7] Configuring Auto-Fallback Wi-Fi Hotspot..."
 sudo nmcli connection delete "StageTimer_Fallback" 2>/dev/null
@@ -77,28 +77,22 @@ fi
 
 sudo plymouth-set-default-theme -R stagetimer
 
-# Hide Linux boot text - More Robust cmdline.txt handling
+# Hide Linux boot text - Bulletproof cmdline.txt handling
 CMDLINE_FILES=("/boot/firmware/cmdline.txt" "/boot/cmdline.txt")
 for CMDLINE in "${CMDLINE_FILES[@]}"; do
     if [ -f "$CMDLINE" ]; then
         echo "Hiding boot text in $CMDLINE..."
         sudo cp "$CMDLINE" "${CMDLINE}.bak"
-        # Strip existing problematic console/quiet/splash parameters
-        sudo sed -i 's/console=serial0,115200//g' "$CMDLINE"
-        sudo sed -i 's/console=tty1//g' "$CMDLINE"
-        sudo sed -i 's/console=serial0//g' "$CMDLINE"
         
-        # Append parameters at the end, ensuring vt.global_cursor_default=0,logo.nologo,vt.cur_default=0 are present
-        sudo tee -a "$CMDLINE" >/dev/null <<EOF
- console=tty3 quiet splash vt.global_cursor_default=0 vt.cur_default=0 logo.nologo
-EOF
-        # Remove potential duplicates
-        sudo sed -i 's/ console=tty3 console=tty3/ console=tty3/g' "$CMDLINE"
-        sudo sed -i 's/ quiet quiet/ quiet/g' "$CMDLINE"
-        sudo sed -i 's/ splash splash/ splash/g' "$CMDLINE"
-        sudo sed -i 's/ vt.global_cursor_default=0 vt.global_cursor_default=0/ vt.global_cursor_default=0/g' "$CMDLINE"
-        sudo sed -i 's/ vt.cur_default=0 vt.cur_default=0/ vt.cur_default=0/g' "$CMDLINE"
-        sudo sed -i 's/ logo.nologo logo.nologo/ logo.nologo/g' "$CMDLINE"
+        CMD_CONTENT=$(cat "$CMDLINE")
+        
+        # Safely strip existing console/splash commands so we don't duplicate them
+        CMD_CONTENT=$(echo "$CMD_CONTENT" | sed 's/ console=serial0,115200//g; s/ console=tty1//g; s/ console=serial0//g; s/ console=tty3//g; s/ quiet//g; s/ splash//g; s/ plymouth.ignore-serial-consoles//g; s/ vt.global_cursor_default=0//g; s/ vt.cur_default=0//g; s/ logo.nologo//g')
+        
+        # Append the exact required string on a single line
+        CMD_CONTENT="$CMD_CONTENT console=tty3 quiet splash plymouth.ignore-serial-consoles vt.global_cursor_default=0 vt.cur_default=0 logo.nologo"
+        
+        sudo bash -c "echo \"$CMD_CONTENT\" > \"$CMDLINE\""
     fi
 done
 
