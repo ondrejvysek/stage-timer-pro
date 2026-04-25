@@ -107,6 +107,39 @@ The Moderator UI features a hidden **Settings Modal** (Click the Gear Icon in th
 
 ## **Elgato Stream Deck / Bitfocus Companion Integration**
 
+### **Bitfocus Companion: Custom Module Setup Guide (Windows)**
+
+If your Companion is running on Windows (not tested on MacOS, approach could be the same)
+
+#### Step 1: Enable developer mode
+
+On the splash screen, click on the gear icon top right
+<img width="397" height="488" alt="image" src="https://github.com/user-attachments/assets/3a24922c-ddb6-4a50-bc25-2fb5d2c12c86" />
+
+Enable the developer mode and choose a folder where the developer modules will be stored
+
+<img width="818" height="579" alt="image" src="https://github.com/user-attachments/assets/636996af-6e41-492c-bb96-e9806b36db1e" />
+
+Close Advanced settings window
+
+#### Step 2: Load custom module
+
+Download stage-timer-pro.pkg [https://github.com/ondrejvysek/stage-timer-pro/blob/main/companion/stage-timer/stage-timer-pro.tgz](https://github.com/ondrejvysek/stage-timer-pro/blob/main/companion/stage-timer/stage-timer-pro.tgz)
+
+In the Companion UI, navigate to Modules, select Import module package, then select the downloaded .pkg file.
+
+The custom module should appear in the module list
+
+<img width="1097" height="424" alt="image" src="https://github.com/user-attachments/assets/59cf74bd-e55f-4301-a1a3-5473ee01ff33" />
+
+#### Step 3: Use the module
+
+Navigate to Connections in the Companion, Add the custom module.
+
+<img width="1365" height="435" alt="image" src="https://github.com/user-attachments/assets/c266a70b-ee92-4caf-8d50-f8c427ffccf3" />
+
+In the IP configuration, enter the IP address of your PI (just IP, no ports,...)
+
 ### **Bitfocus Companion: Custom Module Setup Guide (Companion Pi)**
 
 This repository includes a pre-built, custom Bitfocus Companion module designed specifically to control the Stage Timer Pro API.
