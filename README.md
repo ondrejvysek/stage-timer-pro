@@ -4,6 +4,18 @@ A robust, professional stage timer system built for live events, running on a Ra
 
 The system features a centralized Node.js backend, a responsive web-based **Moderator UI** for operators, and a fully autonomous Wayland/X11 **Presenter Kiosk** that outputs directly to an HDMI display. It is designed to be highly resilient, featuring offline font fallbacks, a custom Boot Splash Screen, an automatic Wi-Fi Access Point if the primary network drops, and deep integrations for professional environments.
 
+## What's New in v2-Dev
+
+The v2-Dev branch introduces a major backend upgrade focused on reliability and operator safety:
+
+* **Timestamp-based timer engine** (`targetTimestamp`) for accurate pause/resume and restart-safe countdown behavior.
+* **Persistent JSON state store** (`data/config.json`, `data/state.json`, `data/display.json`, `data/rundown.json`) with atomic writes.
+* **Rundown engine** with persistent segment queue, Next/Previous controls, and current segment tracking.
+* **Actuals logging** with CSV export (`/api/rundown/actuals/export`) for post-show reporting.
+* **Modernized API** with JSON `POST` routes for state-changing operations, structured validation errors, and legacy GET compatibility wrappers.
+* **Optional admin-token protection** using `x-stage-timer-token` for sensitive actions.
+* **Companion module updates** to support v2 POST routes and admin token headers.
+
 If you like the project, you can support future development:
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/ondrejv)
@@ -104,6 +116,53 @@ The Moderator UI features a hidden **Settings Modal** (Click the Gear Icon in th
 * Change the Pi's hostname.  
 * Upload a custom event logo for the Idle display screen.  
 * **Pull Firmware Update (Git):** Instantly downloads the latest code from this repository and restarts the timer service.
+
+## **Admin Token (v2 API Protection)**
+
+In v2-Dev, protected routes (reset/system/rundown/admin actions) can require an admin token.
+
+### Where to find or set the token
+
+There are two supported sources:
+
+1. **Environment variable (recommended for production):**
+   * `STAGE_TIMER_ADMIN_TOKEN`
+2. **Config file fallback:**
+   * `~/stage-timer/data/config.json` → `adminToken`
+
+If both are set, the environment variable takes priority.
+
+### Quick setup on Raspberry Pi (systemd)
+
+Edit the service:
+
+```bash
+sudo systemctl edit stage-timer
+```
+
+Add:
+
+```ini
+[Service]
+Environment="STAGE_TIMER_ADMIN_TOKEN=CHANGE_ME_TO_A_STRONG_SECRET"
+```
+
+Then reload + restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart stage-timer
+```
+
+### Using the token
+
+Send it as an HTTP header on protected endpoints:
+
+```http
+x-stage-timer-token: YOUR_SECRET_TOKEN
+```
+
+The Companion module now includes an optional **Admin Token** config field and automatically sends this header when configured.
 
 ## **Elgato Stream Deck / Bitfocus Companion Integration**
 

@@ -21,10 +21,12 @@ Stage Timer Pro v2.0 transitions from a single-room utility into a professional,
 
 ### **Idea 2: Autonomous Node Persistence**
 
-* **Functionality:** Live events are high-stakes; if power is pulled mid-session, the system must recover without human intervention. This feature ensures the active speaker, remaining seconds, and queue progress are cached so the system "wakes up" exactly where it left off.  
-* **Technical Solution:** \* **The SD Card Challenge:** Writing to a MicroSD card every second (the timer tick) will burn out the hardware quickly.  
-  * **Implementation:** Uses a **Debounced Write Strategy**. High-priority events (Start, Pause, Reset, Next) are written to data/state.json immediately using fs.writeFileSync. Incremental "time remaining" updates are debounced and written every 10 seconds. On boot, the server injects this JSON back into memory before the first socket emission.  
-* **Data Stored:** timeLeft (int), isRunning (bool), currentIndex (int), mode (str).
+* **Functionality:** Live events are high-stakes; if power is pulled mid-session, the system must recover without human intervention. This feature ensures the active speaker, timer intent, and queue progress are restored so the system "wakes up" exactly where it left off.  
+* **Technical Solution:** \* **Single Source of Truth:** Timer runtime is based on an **absolute target timestamp**, not persisted per-second decrements.  
+  * **Implementation:** Persist intent on high-priority events (Start, Pause, Reset, Next, mode changes). On boot, the server hydrates state before first socket emission, then derives remaining time from `targetTimestamp - now` while running.  
+  * **Write Strategy:** Keep writes event-driven and atomic; avoid per-second disk writes. Any UI-facing `timeLeft` value is derived at render/emission time and must not be the authoritative running state.  
+* **Data Stored (authoritative):** `targetTimestamp` (number|null), `startedAt` (number|null), `pausedRemainingSeconds` (int|null), `durationSeconds` (int), `isRunning` (bool), `currentIndex` (int), `mode` (str).  
+* **Compatibility Note:** Legacy clients may still receive `timeLeft`, but it is computed from authoritative fields above and should be treated as a presentation value only.
 
 ### **Idea 3: Leader/Follower Sync (NTP-Style)**
 
