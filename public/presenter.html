@@ -162,7 +162,7 @@
                 logoDisplay.style.display = 'none';
                 document.getElementById('clock-container').style.display = 'flex';
                 document.getElementById('progress-container').style.display = 'block';
-                const timeStr = state.mode === 'countdown'
+                const timeStr = state.mode === 'target'
                     ? formatCountdownSignedDDHHMMSS(state.timeLeft)
                     : (() => {
                         const absTime = Math.abs(state.timeLeft);

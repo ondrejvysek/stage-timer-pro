@@ -233,7 +233,7 @@
                         <button onclick="api('mode', '?set=logo')" class="btn-preset" id="mode-logo">Idle / Logo</button>
                     </div>
                     <div class="custom-time-row" style="margin-top: 10px;">
-                        <button onclick="triggerTargetCountdown()" class="btn-preset" style="flex:1; background: rgba(37,99,235,0.15); border:1px solid rgba(37,99,235,0.4);">START COUNT TO</button>
+                        <button onclick="triggerTargetCountdown()" class="btn-preset" style="flex:1; background: rgba(37,99,235,0.15); border:1px solid rgba(37,99,235,0.4);">Count to date/time</button>
                         <button id="target-display-btn" onclick="openTargetModal()" class="btn-preset" style="flex:1;">Select Date/Time</button>
                     </div>
                 </section>
@@ -829,7 +829,7 @@
                     monitorTime.innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'}); 
                     monitorTime.style.color = '#22c55e';
                 } else {
-                    if (s.mode === 'countdown') {
+                    if (s.mode === 'target') {
                         monitorTime.innerText = formatCountdownSignedDDHHMMSS(s.timeLeft);
                     } else {
                         const abs = Math.abs(s.timeLeft);
