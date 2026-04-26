@@ -468,6 +468,12 @@ setInterval(() => {
   if (timer.tickBlink()) broadcast();
 }, 500);
 
+setInterval(() => {
+  if (timer.state.isRunning || timer.state.mode === 'timeofday') {
+    broadcast();
+  }
+}, 250);
+
 io.on('connection', (socket) => {
   socket.emit('stateUpdate', publicState());
   socket.emit('messagesUpdate', quickMessages);
