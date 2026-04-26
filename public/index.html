@@ -281,14 +281,12 @@
                         <button id="r-save-btn" onclick="saveRundownSegment()" class="btn-set">ADD</button>
                     </div>
                     <input type="text" id="r-notes" placeholder="Optional notes" class="msg-input" style="margin-bottom: 12px;">
-                    <div class="custom-time-row" style="margin-bottom: 12px;">
-                        <button onclick="rundownRunCurrent()" class="btn-set" style="flex:1; background: var(--green);">RUN CURRENT</button>
-                        <button onclick="api('pause')" class="btn-set" style="flex:1; background: var(--amber);">STOP</button>
-                    </div>
-                    <div class="custom-time-row" style="margin-bottom: 12px;">
-                        <button onclick="rundownPrev()" class="btn-set" style="flex:1;">◀ PREV</button>
-                        <button onclick="rundownNext()" class="btn-set" style="flex:1; background: var(--green);">NEXT ▶</button>
-                        <button onclick="exportActuals()" class="btn-set" style="background: #334155;">CSV</button>
+                    <div class="custom-time-row" style="margin-bottom: 12px; gap: 10px;">
+                        <button onclick="rundownRunCurrent()" class="btn-set" title="Run current segment" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--green);">▶</button>
+                        <button onclick="api('pause')" class="btn-set" title="Stop" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--amber);">■</button>
+                        <button onclick="rundownPrev()" class="btn-set" title="Previous segment" style="height:42px; width:42px; border-radius:999px; padding:0;">⏮</button>
+                        <button onclick="rundownNext()" class="btn-set" title="Next segment" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--green);">⏭</button>
+                        <button onclick="exportActuals()" class="btn-set" title="Export CSV actuals" style="height:42px; width:42px; border-radius:999px; padding:0; background: #334155;">⬇</button>
                     </div>
                     <div id="rundown-list" style="display: grid; gap: 8px;"></div>
                 </section>
