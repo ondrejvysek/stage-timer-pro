@@ -627,7 +627,12 @@
                     row.draggable = true;
                     row.dataset.index = index;
                     row.style.cssText = `display:flex; gap:6px; align-items:center; background:${index===data.currentIndex?'rgba(37,99,235,0.2)':'#0f172a'}; border:1px solid #334155; border-radius:10px; padding:8px;`;
-                    row.innerHTML = `<div style="flex:1; font-size:12px;"><strong>${index + 1}. ${segment.name}</strong><br><span style="color:#94a3b8;">${segment.duration}s • ${segment.mode}</span></div>`;
+                    const noteText = (segment.notes || '').trim();
+                    row.innerHTML = `<div style="flex:1; font-size:12px;">
+                        <strong>${index + 1}. ${segment.name}</strong><br>
+                        <span style="color:#94a3b8;">${segment.duration}s • ${segment.mode}</span>
+                        ${noteText ? `<br><span style="color:#cbd5e1; font-style:italic;">📝 ${noteText}</span>` : ''}
+                    </div>`;
                     row.ondragstart = (e) => e.dataTransfer.setData('text/plain', String(index));
                     row.ondragover = (e) => e.preventDefault();
                     row.ondrop = async (e) => {
@@ -809,11 +814,12 @@
             document.getElementById('ip-display').innerText = s.ip;
             document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
+            const previousTimeLeft = lastTimeLeft;
+
             // Audio trigger on exact cross of 0
-            if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 0 && lastTimeLeft === 1) {
+            if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 0 && previousTimeLeft === 1) {
                 playChime();
             }
-            lastTimeLeft = s.timeLeft;
             v2OnlyMode = !!s.v2OnlyMode;
 
             if (s.logoData) updateLogoUI(s.logoData); else updateLogoUI(null);
@@ -851,7 +857,7 @@
             }
 
             const threshold = getHintThreshold();
-            const hitThreshold = s.mode === 'countdown' && s.isRunning && lastTimeLeft > threshold && s.timeLeft <= threshold;
+            const hitThreshold = s.mode === 'countdown' && s.isRunning && previousTimeLeft > threshold && s.timeLeft <= threshold;
             if (hitThreshold && s.currentSegment && rundownCache[s.currentIndex + 1]) {
                 const nextSegment = rundownCache[s.currentIndex + 1];
                 const nextName = nextSegment.name || 'Next Segment';
@@ -878,6 +884,7 @@
                     }
                 }
             }
+            lastTimeLeft = s.timeLeft;
 
             const monitorTime = document.getElementById('m-time');
             const monitorLogo = document.getElementById('m-logo-img');
