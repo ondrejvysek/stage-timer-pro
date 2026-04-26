@@ -207,23 +207,6 @@
                 <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger" style="color:var(--red);">RESTART</button>
             </div>
         </header>
-        <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
-            <div id="rundown-next-hint" class="hidden" style="flex:1; min-width:300px; background:rgba(37,99,235,0.2); border:1px solid rgba(96,165,250,0.5); color:#dbeafe; padding:10px 14px; border-radius:10px; font-weight:700;"></div>
-            <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
-                <input id="hint-pin-toggle" type="checkbox" checked>
-                📌 Push to presenter
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
-                Threshold
-                <select id="hint-threshold-mode" class="sys-input" style="height:32px; padding:4px 8px; width:auto;">
-                    <option value="countdown">Countdown</option>
-                    <option value="target">Count to date/time</option>
-                </select>
-                <input id="hint-threshold-seconds" type="number" min="1" step="1" class="sys-input" style="height:32px; width:88px;" value="60">
-                <button onclick="saveHintThreshold()" class="sys-btn" style="height:32px; padding:0 10px;">Save</button>
-            </label>
-        </div>
-
         <div class="grid">
             <div class="side-left">
                 <section class="card" style="margin-bottom: 20px;">
@@ -271,6 +254,18 @@
 
                 <section class="card" style="margin-top: 20px;">
                     <h2>Rundown (Phase 3)</h2>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                        <div id="rundown-next-hint" class="hidden" style="flex:1; min-width:300px; background:rgba(37,99,235,0.2); border:1px solid rgba(96,165,250,0.5); color:#dbeafe; padding:10px 14px; border-radius:10px; font-weight:700;"></div>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
+                            <input id="hint-pin-toggle" type="checkbox" checked>
+                            📌 Push note to presenter
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
+                            Trigger (sec)
+                            <input id="hint-threshold-seconds" type="number" min="1" step="1" class="sys-input" style="height:32px; width:88px;" value="60">
+                            <button onclick="saveHintThreshold()" class="sys-btn" style="height:32px; padding:0 10px;">Save</button>
+                        </label>
+                    </div>
                     <div class="custom-time-row" style="margin-bottom: 10px;">
                         <input type="text" id="r-name" placeholder="Segment name" class="input-compact">
                         <input type="number" id="r-minutes" placeholder="Min" class="input-compact" style="max-width: 90px;">
@@ -372,7 +367,7 @@
             let activeRundownHintStep = null;
             let autoRundownMessageStep = null;
             let autoRundownMessageText = '';
-            let hintThresholdByMode = JSON.parse(localStorage.getItem('hintThresholdByMode') || '{"countdown":60,"target":60}');
+            let hintThresholdSeconds = Number(localStorage.getItem('rundownHintThresholdSec') || 60);
             let v2OnlyMode = false;
             let selectedTargetISO = null;
 
@@ -380,24 +375,16 @@
         let audioEnabled = false;
         let lastTimeLeft = -999;
 
-        function getHintThreshold(mode) {
-            const raw = hintThresholdByMode?.[mode];
-            const n = Number(raw);
-            return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+        function getHintThreshold() {
+            return Number.isFinite(hintThresholdSeconds) && hintThresholdSeconds > 0 ? Math.floor(hintThresholdSeconds) : 60;
         }
 
         function saveHintThreshold() {
-            const mode = document.getElementById('hint-threshold-mode').value;
             const seconds = Number(document.getElementById('hint-threshold-seconds').value);
             if (!Number.isFinite(seconds) || seconds < 1) return alert('Threshold must be at least 1 second');
-            hintThresholdByMode[mode] = Math.floor(seconds);
-            localStorage.setItem('hintThresholdByMode', JSON.stringify(hintThresholdByMode));
-            alert(`Saved ${mode} trigger threshold at ${Math.floor(seconds)}s`);
-        }
-
-        function syncHintThresholdEditor() {
-            const mode = document.getElementById('hint-threshold-mode').value;
-            document.getElementById('hint-threshold-seconds').value = getHintThreshold(mode) ?? 60;
+            hintThresholdSeconds = Math.floor(seconds);
+            localStorage.setItem('rundownHintThresholdSec', String(hintThresholdSeconds));
+            alert(`Saved rundown trigger threshold at ${hintThresholdSeconds}s`);
         }
         
         function toggleAudio() {
@@ -863,23 +850,25 @@
                 }
             }
 
-            const threshold = getHintThreshold(s.mode);
-            const hitThreshold = s.isRunning && threshold !== null && lastTimeLeft > threshold && s.timeLeft <= threshold;
+            const threshold = getHintThreshold();
+            const hitThreshold = s.mode === 'countdown' && s.isRunning && lastTimeLeft > threshold && s.timeLeft <= threshold;
             if (hitThreshold && s.currentSegment && rundownCache[s.currentIndex + 1]) {
-                const nextName = rundownCache[s.currentIndex + 1].name || 'Next Segment';
+                const nextSegment = rundownCache[s.currentIndex + 1];
+                const nextName = nextSegment.name || 'Next Segment';
+                const nextNote = String(nextSegment.notes || '').trim();
                 if (lastRundownHintSegment !== `${s.currentIndex}:${nextName}`) {
                     const hint = document.getElementById('rundown-next-hint');
-                    hint.innerText = `⚡ NEXT UP: ${nextName}`;
+                    hint.innerText = nextNote ? `⚡ NEXT UP: ${nextName} — Note: ${nextNote}` : `⚡ NEXT UP: ${nextName}`;
                     hint.classList.remove('hidden');
                     hint.style.boxShadow = '0 0 0 2px rgba(56,189,248,0.35), 0 0 22px rgba(56,189,248,0.25)';
                     hint.style.borderColor = 'rgba(125,211,252,0.9)';
                     activeRundownHintStep = s.currentIndex;
                     lastRundownHintSegment = `${s.currentIndex}:${nextName}`;
 
-                    const nextMessage = `NEXT: ${nextName}`;
+                    const nextMessage = nextNote;
                     autoRundownMessageText = nextMessage;
                     autoRundownMessageStep = s.currentIndex;
-                    if (document.getElementById('hint-pin-toggle').checked) {
+                    if (document.getElementById('hint-pin-toggle').checked && nextMessage) {
                         try {
                             await apiPost('/api/message/set', { text: nextMessage, source: 'auto_rundown' });
                             if (!s.showMessage) await apiPost('/api/message/toggle', {});
@@ -962,8 +951,7 @@
             const hintPinToggle = document.getElementById('hint-pin-toggle');
             hintPinToggle.checked = localStorage.getItem('hintPinToPresenter') !== '0';
             hintPinToggle.addEventListener('change', () => localStorage.setItem('hintPinToPresenter', hintPinToggle.checked ? '1' : '0'));
-            document.getElementById('hint-threshold-mode').addEventListener('change', syncHintThresholdEditor);
-            syncHintThresholdEditor();
+            document.getElementById('hint-threshold-seconds').value = getHintThreshold();
             loadRundown();
         });
     </script>
