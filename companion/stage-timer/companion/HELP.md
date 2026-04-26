@@ -16,4 +16,7 @@ Smart Feedbacks: Buttons will automatically turn Green, Yellow (under 2m), and R
 
 Configuration
 
-Simply enter the IP address of the Raspberry Pi running the Node.js timer server in the module configuration.
+Enter the IP address of the Raspberry Pi running the timer server.
+
+If your Stage Timer Pro instance uses admin protection, also enter the optional **Admin Token** in the module settings.  
+The module sends this token in the `x-stage-timer-token` header for protected v2 API routes.

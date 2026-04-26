@@ -158,6 +158,15 @@
                     <button onclick="updateFirmware()" class="sys-btn sys-btn-warn" style="flex: 1;">PULL FIRMWARE UPDATE (GIT)</button>
                 </div>
             </div>
+
+            <div class="sys-group">
+                <h3>Admin Token (for protected v2 API routes)</h3>
+                <div class="sys-row">
+                    <input type="password" id="admin-token" class="sys-input" placeholder="x-stage-timer-token">
+                    <button onclick="saveAdminToken()" class="sys-btn">SAVE</button>
+                </div>
+                <p style="font-size:11px; color:var(--text-dim); margin:0;">Stored only in this browser (localStorage).</p>
+            </div>
         </div>
     </div>
 
@@ -273,6 +282,30 @@
                     <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid"></div>
                 </section>
 
+                <section class="card" style="margin-bottom: 20px;">
+                    <h2>Rundown (Phase 3)</h2>
+                    <div class="custom-time-row" style="margin-bottom: 10px;">
+                        <input type="text" id="r-name" placeholder="Segment name" class="input-compact">
+                        <input type="number" id="r-duration" placeholder="Sec" class="input-compact" style="max-width: 120px;">
+                    </div>
+                    <div class="custom-time-row" style="margin-bottom: 10px;">
+                        <select id="r-mode" class="input-compact">
+                            <option value="countdown">Countdown</option>
+                            <option value="countup">Count-Up</option>
+                            <option value="timeofday">Time of Day</option>
+                            <option value="logo">Logo</option>
+                        </select>
+                        <button id="r-save-btn" onclick="saveRundownSegment()" class="btn-set">ADD</button>
+                    </div>
+                    <input type="text" id="r-notes" placeholder="Optional notes" class="msg-input" style="margin-bottom: 12px;">
+                    <div class="custom-time-row" style="margin-bottom: 12px;">
+                        <button onclick="rundownPrev()" class="btn-set" style="flex:1;">◀ PREV</button>
+                        <button onclick="rundownNext()" class="btn-set" style="flex:1; background: var(--green);">NEXT ▶</button>
+                        <button onclick="exportActuals()" class="btn-set" style="background: #334155;">CSV</button>
+                    </div>
+                    <div id="rundown-list" style="display: grid; gap: 8px;"></div>
+                </section>
+
                 <section class="card">
                     <h2>Event Logo Upload</h2>
                     <div class="logo-preview-box" id="logo-preview-container">
@@ -290,7 +323,9 @@
     </div>
 
     <script>
-        const socket = io();
+            const socket = io();
+            let adminToken = localStorage.getItem('stageTimerAdminToken') || '';
+            let editingRundownIndex = null;
 
         // Audio Cues Logic
         let audioEnabled = false;
@@ -335,6 +370,21 @@
                 param = vStr.startsWith('?') ? vStr : ('?sec=' + vStr);
             }
             fetch(`/api/${c}${param}`); 
+        }
+
+        function getApiHeaders(includeJson = true) {
+            const headers = includeJson ? { 'Content-Type': 'application/json' } : {};
+            if (adminToken) headers['x-stage-timer-token'] = adminToken;
+            return headers;
+        }
+
+        async function apiPost(path, body = {}) {
+            const res = await fetch(path, { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify(body) });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `${res.status}`);
+            }
+            return res;
         }
 
         function updateMsgText(){ fetch(`/api/message/set?text=${encodeURIComponent(document.getElementById('minput').value)}`); }
@@ -408,20 +458,151 @@
         function setHostname() { const name = document.getElementById('sys-hostname').value; if(name) fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`); }
         function updateFirmware() { if(confirm('Pull updates and restart?')) fetch('/api/system/update'); }
 
+        function saveAdminToken() {
+            adminToken = document.getElementById('admin-token').value.trim();
+            localStorage.setItem('stageTimerAdminToken', adminToken);
+            alert('Admin token saved locally in this browser.');
+        }
+
+        async function loadRundown() {
+            try {
+                const res = await fetch('/api/rundown');
+                const data = await res.json();
+                const list = document.getElementById('rundown-list');
+                list.innerHTML = '';
+                (data.rundown || []).forEach((segment, index) => {
+                    const row = document.createElement('div');
+                    row.style.cssText = `display:flex; gap:6px; align-items:center; background:${index===data.currentIndex?'rgba(37,99,235,0.2)':'#0f172a'}; border:1px solid #334155; border-radius:10px; padding:8px;`;
+                    row.innerHTML = `<div style="flex:1; font-size:12px;"><strong>${index + 1}. ${segment.name}</strong><br><span style="color:#94a3b8;">${segment.duration}s • ${segment.mode}</span></div>`;
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn-set';
+                    editBtn.style.padding = '8px 10px';
+                    editBtn.innerText = 'Edit';
+                    editBtn.onclick = () => {
+                        editingRundownIndex = index;
+                        document.getElementById('r-name').value = segment.name || '';
+                        document.getElementById('r-duration').value = segment.duration || 0;
+                        document.getElementById('r-mode').value = segment.mode || 'countdown';
+                        document.getElementById('r-notes').value = segment.notes || '';
+                        document.getElementById('r-save-btn').innerText = 'UPDATE';
+                    };
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn-set';
+                    delBtn.style.cssText = 'padding:8px 10px; background: var(--red);';
+                    delBtn.innerText = '×';
+                    delBtn.onclick = async () => {
+                        try {
+                            await apiPost('/api/rundown/item/remove', { index });
+                            await loadRundown();
+                        } catch (error) {
+                            alert(`Remove failed: ${error.message}`);
+                        }
+                    };
+
+                    row.appendChild(editBtn);
+                    row.appendChild(delBtn);
+                    list.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Rundown load failed', error);
+            }
+        }
+
+        async function saveRundownSegment() {
+            const segment = {
+                name: document.getElementById('r-name').value.trim(),
+                duration: parseInt(document.getElementById('r-duration').value || '0', 10),
+                mode: document.getElementById('r-mode').value,
+                notes: document.getElementById('r-notes').value.trim(),
+            };
+
+            try {
+                if (editingRundownIndex === null) {
+                    await apiPost('/api/rundown/item/add', { segment });
+                } else {
+                    await apiPost('/api/rundown/item/update', { index: editingRundownIndex, segment });
+                }
+                editingRundownIndex = null;
+                document.getElementById('r-save-btn').innerText = 'ADD';
+                document.getElementById('r-name').value = '';
+                document.getElementById('r-duration').value = '';
+                document.getElementById('r-mode').value = 'countdown';
+                document.getElementById('r-notes').value = '';
+                await loadRundown();
+            } catch (error) {
+                alert(`Save failed: ${error.message}`);
+            }
+        }
+
+        async function rundownNext() {
+            try {
+                await apiPost('/api/rundown/next');
+                await loadRundown();
+            } catch (error) {
+                alert(`Next failed: ${error.message}`);
+            }
+        }
+
+        async function rundownPrev() {
+            try {
+                await apiPost('/api/rundown/previous');
+                await loadRundown();
+            } catch (error) {
+                alert(`Previous failed: ${error.message}`);
+            }
+        }
+
+        async function exportActuals() {
+            try {
+                const res = await fetch('/api/rundown/actuals/export', { headers: getApiHeaders(false) });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || `${res.status}`);
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'actuals.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert(`Export failed: ${error.message}`);
+            }
+        }
+
         function handleLogoSelection(input) {
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
-                fetch('/api/system/logo/upload', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: e.target.result })
-                });
+            reader.onload = async function(e) {
+                const imageData = e.target.result;
+                try {
+                    const res = await fetch('/api/system/logo/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData })
+                    });
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        alert(`Logo upload failed: ${errText}`);
+                        return;
+                    }
+                    updateLogoUI(imageData);
+                } catch (error) {
+                    alert('Logo upload failed: network error');
+                }
             };
             reader.readAsDataURL(file);
         }
 
         function clearLogo() {
-            if(confirm('Clear current logo?')) { fetch('/api/system/logo/clear'); document.getElementById('logo-input').value = ''; }
+            if(confirm('Clear current logo?')) {
+                fetch('/api/system/logo/clear', { method: 'POST' });
+                document.getElementById('logo-input').value = '';
+            }
         }
 
         function updateLogoUI(dataUrl) {
@@ -511,6 +692,12 @@
                 
                 wrapper.appendChild(btn); wrapper.appendChild(delBtn); grid.appendChild(wrapper);
             });
+        });
+
+        window.addEventListener('load', () => {
+            const tokenInput = document.getElementById('admin-token');
+            if (tokenInput) tokenInput.value = adminToken;
+            loadRundown();
         });
     </script>
 </body>

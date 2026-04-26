@@ -52,6 +52,12 @@ class StageTimerInstance extends InstanceBase {
 				width: 8,
 				regex: Regex.IP,
 			},
+			{
+				type: "textinput",
+				id: "adminToken",
+				label: "Admin Token (optional)",
+				width: 8,
+			},
 		];
 	}
 
@@ -159,10 +165,30 @@ class StageTimerInstance extends InstanceBase {
 	}
 
 	initActions() {
-		const sendCmd = async (cmd) => {
+		const buildHeaders = () => {
+			const headers = { "Content-Type": "application/json" };
+			if (this.config.adminToken) {
+				headers["x-stage-timer-token"] = this.config.adminToken;
+			}
+			return headers;
+		};
+
+		const sendCmd = async (cmd, options = {}) => {
 			if (!this.config.host) return;
+			const { method = "POST", body = undefined, legacyQuery = "" } = options;
+			const baseUrl = `http://${this.config.host}:3000/api/${cmd}`;
 			try {
-				await fetch(`http://${this.config.host}:3000/api/${cmd}`);
+				const response = await fetch(baseUrl, {
+					method,
+					headers: buildHeaders(),
+					body: body ? JSON.stringify(body) : undefined,
+				});
+				if (response.ok) return;
+
+				// Compatibility fallback for older firmware still using GET query routes.
+				if (legacyQuery) {
+					await fetch(`${baseUrl}${legacyQuery}`);
+				}
 			} catch (e) {}
 		};
 
@@ -211,7 +237,10 @@ class StageTimerInstance extends InstanceBase {
 					},
 				],
 				callback: async (action) => {
-					await sendCmd(`message/trigger?index=${action.options.slot - 1}`);
+					await sendCmd("message/trigger", {
+						body: { index: action.options.slot - 1 },
+						legacyQuery: `?index=${action.options.slot - 1}`,
+					});
 				},
 			},
 
@@ -227,7 +256,10 @@ class StageTimerInstance extends InstanceBase {
 					},
 				],
 				callback: async (action) => {
-					await sendCmd(`reset?sec=${action.options.sec}`);
+					await sendCmd("reset", {
+						body: { sec: action.options.sec },
+						legacyQuery: `?sec=${action.options.sec}`,
+					});
 				},
 			},
 			reset_last: {
@@ -249,7 +281,10 @@ class StageTimerInstance extends InstanceBase {
 					},
 				],
 				callback: async (action) => {
-					await sendCmd(`add?sec=${action.options.sec}`);
+					await sendCmd("add", {
+						body: { sec: action.options.sec },
+						legacyQuery: `?sec=${action.options.sec}`,
+					});
 				},
 			},
 			set_mode: {
@@ -269,7 +304,10 @@ class StageTimerInstance extends InstanceBase {
 					},
 				],
 				callback: async (action) => {
-					await sendCmd(`mode?set=${action.options.mode}`);
+					await sendCmd("mode", {
+						body: { set: action.options.mode },
+						legacyQuery: `?set=${action.options.mode}`,
+					});
 				},
 			},
 		});
