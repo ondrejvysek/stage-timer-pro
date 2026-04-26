@@ -286,6 +286,8 @@
                         <button onclick="api('pause')" class="btn-set" title="Stop" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--amber);">■</button>
                         <button onclick="rundownPrev()" class="btn-set" title="Previous segment" style="height:42px; width:42px; border-radius:999px; padding:0;">⏮</button>
                         <button onclick="rundownNext()" class="btn-set" title="Next segment" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--green);">⏭</button>
+                        <input type="file" id="rundown-csv-input" accept=".csv,text/csv" class="hidden" onchange="importRundownCsv(this)">
+                        <button onclick="document.getElementById('rundown-csv-input').click()" class="btn-set" title="Import rundown CSV" style="height:42px; width:42px; border-radius:999px; padding:0; background: #1f2937;">⬆</button>
                         <button onclick="exportActuals()" class="btn-set" title="Export CSV actuals" style="height:42px; width:42px; border-radius:999px; padding:0; background: #334155;">⬇</button>
                     </div>
                     <div id="rundown-list" style="display: grid; gap: 8px;"></div>
@@ -768,6 +770,95 @@
                 URL.revokeObjectURL(url);
             } catch (error) {
                 alert(`Export failed: ${error.message}`);
+            }
+        }
+
+        function parseCsvRows(text) {
+            const rows = [];
+            let row = [];
+            let cell = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+                const next = text[i + 1];
+                if (ch === '"') {
+                    if (inQuotes && next === '"') { cell += '"'; i++; }
+                    else inQuotes = !inQuotes;
+                } else if (ch === ',' && !inQuotes) {
+                    row.push(cell);
+                    cell = '';
+                } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+                    if (ch === '\r' && next === '\n') i++;
+                    row.push(cell);
+                    if (row.some(part => String(part).trim() !== '')) rows.push(row);
+                    row = [];
+                    cell = '';
+                } else {
+                    cell += ch;
+                }
+            }
+            if (cell.length || row.length) {
+                row.push(cell);
+                if (row.some(part => String(part).trim() !== '')) rows.push(row);
+            }
+            return rows;
+        }
+
+        function parseDurationToSeconds(raw) {
+            const value = String(raw || '').trim();
+            if (!value) return 0;
+            if (/^\d+$/.test(value)) return Math.max(0, parseInt(value, 10));
+            const parts = value.split(':').map(p => p.trim()).filter(Boolean).map(Number);
+            if (parts.some(n => !Number.isFinite(n))) return 0;
+            if (parts.length === 2) return Math.max(0, parts[0] * 60 + parts[1]);
+            if (parts.length === 3) return Math.max(0, parts[0] * 3600 + parts[1] * 60 + parts[2]);
+            return 0;
+        }
+
+        async function importRundownCsv(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const rows = parseCsvRows(text);
+                if (!rows.length) return alert('CSV is empty.');
+
+                const first = rows[0].map(v => String(v || '').trim().toLowerCase());
+                const hasHeader = first.includes('name') || first.includes('segment') || first.includes('duration') || first.includes('mode') || first.includes('notes');
+                const dataRows = hasHeader ? rows.slice(1) : rows;
+
+                const indexOf = (keys, fallback) => {
+                    for (const key of keys) {
+                        const idx = first.indexOf(key);
+                        if (idx >= 0) return idx;
+                    }
+                    return fallback;
+                };
+
+                const nameIdx = hasHeader ? indexOf(['name', 'segment', 'title'], 0) : 0;
+                const durationIdx = hasHeader ? indexOf(['duration', 'seconds', 'duration_seconds', 'time'], 1) : 1;
+                const modeIdx = hasHeader ? indexOf(['mode', 'type'], 2) : 2;
+                const notesIdx = hasHeader ? indexOf(['notes', 'note', 'optional_note'], 3) : 3;
+
+                const allowedModes = new Set(['countdown', 'countup', 'timeofday', 'logo']);
+                const rundown = dataRows.map(cols => {
+                    const name = String(cols[nameIdx] || '').trim() || 'Untitled Segment';
+                    const duration = parseDurationToSeconds(cols[durationIdx]);
+                    const modeRaw = String(cols[modeIdx] || '').trim().toLowerCase();
+                    const mode = allowedModes.has(modeRaw) ? modeRaw : 'countdown';
+                    const notes = String(cols[notesIdx] || '').trim();
+                    return { name, duration, mode, notes };
+                }).filter(seg => seg.name || seg.duration > 0 || seg.notes);
+
+                if (!rundown.length) return alert('No valid segments found in CSV.');
+                await apiPost('/api/rundown/set', { rundown });
+                await loadRundown();
+                alert(`Imported ${rundown.length} segment(s) from CSV.`);
+            } catch (error) {
+                alert(`CSV import failed: ${error.message}`);
+            } finally {
+                input.value = '';
             }
         }
 
