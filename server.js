@@ -153,6 +153,93 @@ function csvEscape(value) {
   return `"${str.replace(/"/g, '""')}"`;
 }
 
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === '"') {
+      if (inQuotes && next === '"') { cell += '"'; i += 1; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && next === '\n') i += 1;
+      row.push(cell);
+      if (row.some((part) => String(part).trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += ch;
+    }
+  }
+  if (cell.length || row.length) {
+    row.push(cell);
+    if (row.some((part) => String(part).trim() !== '')) rows.push(row);
+  }
+  return rows;
+}
+
+function parseDurationToSeconds(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Math.max(0, parseInt(value, 10));
+  const parts = value.split(':').map((p) => p.trim()).filter(Boolean).map(Number);
+  if (parts.some((n) => !Number.isFinite(n))) return 0;
+  if (parts.length === 2) return Math.max(0, (parts[0] * 60) + parts[1]);
+  if (parts.length === 3) return Math.max(0, (parts[0] * 3600) + (parts[1] * 60) + parts[2]);
+  return 0;
+}
+
+function parseRundownCsv(csvText) {
+  const rows = parseCsvRows(csvText);
+  if (!rows.length) return { segments: [], warnings: ['CSV is empty'] };
+
+  const header = rows[0].map((v) => String(v || '').trim().toLowerCase());
+  const hasHeader = header.includes('name')
+    || header.includes('segment')
+    || header.includes('duration')
+    || header.includes('mode')
+    || header.includes('notes');
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const warnings = [];
+
+  const indexOf = (keys, fallback) => {
+    for (const key of keys) {
+      const idx = header.indexOf(key);
+      if (idx >= 0) return idx;
+    }
+    return fallback;
+  };
+
+  const nameIdx = hasHeader ? indexOf(['name', 'segment', 'title'], 0) : 0;
+  const durationIdx = hasHeader ? indexOf(['duration', 'seconds', 'duration_seconds', 'time'], 1) : 1;
+  const modeIdx = hasHeader ? indexOf(['mode', 'type'], 2) : 2;
+  const notesIdx = hasHeader ? indexOf(['notes', 'note', 'optional_note'], 3) : 3;
+  const validModes = new Set(['countdown', 'countup', 'timeofday', 'logo']);
+
+  const segments = dataRows.map((cols, idx) => {
+    const rowNum = hasHeader ? idx + 2 : idx + 1;
+    const rawName = String(cols[nameIdx] || '').trim();
+    const rawMode = String(cols[modeIdx] || '').trim().toLowerCase();
+    const rawDuration = cols[durationIdx];
+    if (rawMode && !validModes.has(rawMode)) warnings.push(`Row ${rowNum}: unknown mode "${rawMode}", defaulted to countdown`);
+    const seg = queue.sanitizeSegment({
+      name: rawName || 'Untitled Segment',
+      duration: parseDurationToSeconds(rawDuration),
+      mode: validModes.has(rawMode) ? rawMode : 'countdown',
+      notes: String(cols[notesIdx] || '').trim(),
+    });
+    return seg;
+  });
+
+  return { segments, warnings };
+}
+
 function appendActualsLog(segmentName, plannedSeconds, actualSeconds) {
   const timestamp = new Date().toISOString();
   const delta = actualSeconds - plannedSeconds;
@@ -530,6 +617,20 @@ app.post('/api/rundown/set', requireAdmin, (req, res) => {
   broadcast();
 
   res.json({ ok: true, ...queue.getState() });
+});
+
+app.post('/api/rundown/import', requireAdmin, (req, res) => {
+  const csv = String(req.body?.csv || '');
+  const importMode = req.body?.importMode === 'append' ? 'append' : 'replace';
+  if (!csv.trim()) return structuredError(res, 400, 'Invalid payload', 'csv is required');
+  const parsed = parseRundownCsv(csv);
+  if (!parsed.segments.length) return structuredError(res, 400, 'CSV import failed', parsed.warnings);
+  const combined = importMode === 'append' ? [...queue.rundown, ...parsed.segments] : parsed.segments;
+  queue.setRundown(combined);
+  persistRundown();
+  persistState();
+  broadcast();
+  return res.json({ ok: true, importMode, imported: parsed.segments.length, warnings: parsed.warnings, ...queue.getState() });
 });
 
 app.post('/api/rundown/item/add', requireAdmin, (req, res) => {

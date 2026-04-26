@@ -197,6 +197,30 @@
         </div>
     </div>
 
+    <div id="import-preview-modal" class="modal-overlay">
+        <div class="modal-content" style="width: min(920px, 96vw);">
+            <div class="modal-title">
+                CSV IMPORT PREVIEW
+                <button onclick="closeImportPreviewModal()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
+            </div>
+            <div style="display:flex; gap:16px; margin-bottom: 12px; flex-wrap: wrap;">
+                <label><input type="radio" name="import-mode" value="replace" checked> Replace rundown</label>
+                <label><input type="radio" name="import-mode" value="append"> Append to existing</label>
+            </div>
+            <div id="import-warning-box" class="hidden" style="margin-bottom:12px; padding:10px; border-radius:10px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.5); color:#fde68a;"></div>
+            <div style="max-height: 300px; overflow:auto; border:1px solid #334155; border-radius:10px;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead><tr style="background:#0b1220;"><th style="text-align:left; padding:8px;">Name</th><th style="text-align:left; padding:8px;">Duration(s)</th><th style="text-align:left; padding:8px;">Mode</th><th style="text-align:left; padding:8px;">Notes</th></tr></thead>
+                    <tbody id="import-preview-rows"></tbody>
+                </table>
+            </div>
+            <div class="custom-time-row" style="margin-top: 12px;">
+                <button onclick="closeImportPreviewModal()" class="btn-set" style="background:#334155;">Cancel</button>
+                <button onclick="confirmRundownCsvImport()" class="btn-set">Import</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
@@ -287,6 +311,7 @@
                         <button onclick="rundownPrev()" class="btn-set" title="Previous segment" style="height:42px; width:42px; border-radius:999px; padding:0;">⏮</button>
                         <button onclick="rundownNext()" class="btn-set" title="Next segment" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--green);">⏭</button>
                         <input type="file" id="rundown-csv-input" accept=".csv,text/csv" class="hidden" onchange="importRundownCsv(this)">
+                        <button onclick="downloadRundownTemplateCsv()" class="btn-set" title="Download rundown template CSV" style="height:42px; width:42px; border-radius:999px; padding:0; background: #0f766e;">T</button>
                         <button onclick="document.getElementById('rundown-csv-input').click()" class="btn-set" title="Import rundown CSV" style="height:42px; width:42px; border-radius:999px; padding:0; background: #1f2937;">⬆</button>
                         <button onclick="exportActuals()" class="btn-set" title="Export CSV actuals" style="height:42px; width:42px; border-radius:999px; padding:0; background: #334155;">⬇</button>
                     </div>
@@ -368,6 +393,9 @@
             let autoRundownMessageStep = null;
             let autoRundownMessageText = '';
             let hintThresholdSeconds = Number(localStorage.getItem('rundownHintThresholdSec') || 60);
+            let pendingRundownImportCsv = '';
+            let pendingRundownImportSegments = [];
+            let pendingRundownImportWarnings = [];
             let v2OnlyMode = false;
             let selectedTargetISO = null;
 
@@ -816,49 +844,121 @@
             return 0;
         }
 
+        function mapRundownRowsFromCsv(csvText) {
+            const rows = parseCsvRows(csvText);
+            if (!rows.length) return { segments: [], warnings: ['CSV is empty'] };
+
+            const first = rows[0].map(v => String(v || '').trim().toLowerCase());
+            const hasHeader = first.includes('name') || first.includes('segment') || first.includes('duration') || first.includes('mode') || first.includes('notes');
+            const dataRows = hasHeader ? rows.slice(1) : rows;
+            const warnings = [];
+
+            const indexOf = (keys, fallback) => {
+                for (const key of keys) {
+                    const idx = first.indexOf(key);
+                    if (idx >= 0) return idx;
+                }
+                return fallback;
+            };
+
+            const nameIdx = hasHeader ? indexOf(['name', 'segment', 'title'], 0) : 0;
+            const durationIdx = hasHeader ? indexOf(['duration', 'seconds', 'duration_seconds', 'time'], 1) : 1;
+            const modeIdx = hasHeader ? indexOf(['mode', 'type'], 2) : 2;
+            const notesIdx = hasHeader ? indexOf(['notes', 'note', 'optional_note'], 3) : 3;
+
+            const allowedModes = new Set(['countdown', 'countup', 'timeofday', 'logo']);
+            const segments = dataRows.map((cols, idx) => {
+                const rowNum = hasHeader ? idx + 2 : idx + 1;
+                const modeRaw = String(cols[modeIdx] || '').trim().toLowerCase();
+                if (modeRaw && !allowedModes.has(modeRaw)) warnings.push(`Row ${rowNum}: unknown mode "${modeRaw}", defaulted to countdown`);
+                return {
+                    name: String(cols[nameIdx] || '').trim() || 'Untitled Segment',
+                    duration: parseDurationToSeconds(cols[durationIdx]),
+                    mode: allowedModes.has(modeRaw) ? modeRaw : 'countdown',
+                    notes: String(cols[notesIdx] || '').trim(),
+                };
+            });
+            return { segments, warnings };
+        }
+
+        function openImportPreviewModal() {
+            document.getElementById('import-preview-modal').classList.add('active');
+        }
+
+        function closeImportPreviewModal() {
+            document.getElementById('import-preview-modal').classList.remove('active');
+        }
+
+        function downloadRundownTemplateCsv() {
+            const template = [
+                'name,duration,mode,notes',
+                'Opening,300,countdown,Welcome and housekeeping',
+                'Speaker A,900,countdown,Keep answers short in Q&A',
+                'Break,600,countdown,',
+                'Clock Check,0,timeofday,'
+            ].join('\n');
+            const blob = new Blob([template], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rundown_template.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
         async function importRundownCsv(input) {
             const file = input.files && input.files[0];
             if (!file) return;
             try {
                 const text = await file.text();
-                const rows = parseCsvRows(text);
-                if (!rows.length) return alert('CSV is empty.');
+                const mapped = mapRundownRowsFromCsv(text);
+                if (!mapped.segments.length) return alert('No valid segments found in CSV.');
+                pendingRundownImportCsv = text;
+                pendingRundownImportSegments = mapped.segments;
+                pendingRundownImportWarnings = mapped.warnings;
 
-                const first = rows[0].map(v => String(v || '').trim().toLowerCase());
-                const hasHeader = first.includes('name') || first.includes('segment') || first.includes('duration') || first.includes('mode') || first.includes('notes');
-                const dataRows = hasHeader ? rows.slice(1) : rows;
-
-                const indexOf = (keys, fallback) => {
-                    for (const key of keys) {
-                        const idx = first.indexOf(key);
-                        if (idx >= 0) return idx;
-                    }
-                    return fallback;
-                };
-
-                const nameIdx = hasHeader ? indexOf(['name', 'segment', 'title'], 0) : 0;
-                const durationIdx = hasHeader ? indexOf(['duration', 'seconds', 'duration_seconds', 'time'], 1) : 1;
-                const modeIdx = hasHeader ? indexOf(['mode', 'type'], 2) : 2;
-                const notesIdx = hasHeader ? indexOf(['notes', 'note', 'optional_note'], 3) : 3;
-
-                const allowedModes = new Set(['countdown', 'countup', 'timeofday', 'logo']);
-                const rundown = dataRows.map(cols => {
-                    const name = String(cols[nameIdx] || '').trim() || 'Untitled Segment';
-                    const duration = parseDurationToSeconds(cols[durationIdx]);
-                    const modeRaw = String(cols[modeIdx] || '').trim().toLowerCase();
-                    const mode = allowedModes.has(modeRaw) ? modeRaw : 'countdown';
-                    const notes = String(cols[notesIdx] || '').trim();
-                    return { name, duration, mode, notes };
-                }).filter(seg => seg.name || seg.duration > 0 || seg.notes);
-
-                if (!rundown.length) return alert('No valid segments found in CSV.');
-                await apiPost('/api/rundown/set', { rundown });
-                await loadRundown();
-                alert(`Imported ${rundown.length} segment(s) from CSV.`);
+                const rowsEl = document.getElementById('import-preview-rows');
+                rowsEl.innerHTML = '';
+                pendingRundownImportSegments.forEach(seg => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="padding:8px; border-top:1px solid #334155;">${seg.name}</td>
+                                    <td style="padding:8px; border-top:1px solid #334155;">${seg.duration}</td>
+                                    <td style="padding:8px; border-top:1px solid #334155;">${seg.mode}</td>
+                                    <td style="padding:8px; border-top:1px solid #334155;">${seg.notes || ''}</td>`;
+                    rowsEl.appendChild(tr);
+                });
+                const warnEl = document.getElementById('import-warning-box');
+                if (pendingRundownImportWarnings.length) {
+                    warnEl.classList.remove('hidden');
+                    warnEl.innerHTML = `<strong>Validation warnings:</strong><br>${pendingRundownImportWarnings.join('<br>')}`;
+                } else {
+                    warnEl.classList.add('hidden');
+                    warnEl.innerHTML = '';
+                }
+                openImportPreviewModal();
             } catch (error) {
                 alert(`CSV import failed: ${error.message}`);
             } finally {
                 input.value = '';
+            }
+        }
+
+        async function confirmRundownCsvImport() {
+            if (!pendingRundownImportCsv) return alert('No CSV pending import.');
+            const importModeEl = document.querySelector('input[name="import-mode"]:checked');
+            const importMode = importModeEl ? importModeEl.value : 'replace';
+            try {
+                const res = await apiPost('/api/rundown/import', { csv: pendingRundownImportCsv, importMode });
+                const data = await res.json();
+                await loadRundown();
+                closeImportPreviewModal();
+                pendingRundownImportCsv = '';
+                pendingRundownImportSegments = [];
+                pendingRundownImportWarnings = [];
+                const warningMsg = data.warnings && data.warnings.length ? `\nWarnings:\n- ${data.warnings.join('\n- ')}` : '';
+                alert(`Imported ${data.imported || 0} segment(s) (${importMode}).${warningMsg}`);
+            } catch (error) {
+                alert(`Import failed: ${error.message}`);
             }
         }
 
