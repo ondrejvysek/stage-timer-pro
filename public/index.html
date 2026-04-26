@@ -354,6 +354,9 @@
             let editingRundownIndex = null;
             let rundownCache = [];
             let lastRundownHintSegment = '';
+            let activeRundownHintStep = null;
+            let autoRundownMessageStep = null;
+            let autoRundownMessageText = '';
             let v2OnlyMode = false;
             let selectedTargetISO = null;
 
@@ -779,7 +782,7 @@
             }
         }
 
-        socket.on('stateUpdate', s => {
+        socket.on('stateUpdate', async s => {
             document.getElementById('ip-display').innerText = s.ip;
             document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
@@ -803,14 +806,47 @@
                 if (displayBtn) displayBtn.innerText = new Date(selectedTargetISO).toLocaleString();
             }
 
+            if (activeRundownHintStep !== null && s.currentIndex !== activeRundownHintStep) {
+                const hint = document.getElementById('rundown-next-hint');
+                hint.classList.add('hidden');
+                hint.style.boxShadow = 'none';
+                hint.style.borderColor = 'rgba(96,165,250,0.5)';
+                activeRundownHintStep = null;
+
+                if (autoRundownMessageStep !== null && s.currentIndex !== autoRundownMessageStep) {
+                    if (s.message === autoRundownMessageText) {
+                        try {
+                            if (s.showMessage) await apiPost('/api/message/toggle', {});
+                            await apiPost('/api/message/set', { text: '' });
+                        } catch (error) {
+                            console.warn('Could not clear auto rundown message:', error.message);
+                        }
+                    }
+                    autoRundownMessageStep = null;
+                    autoRundownMessageText = '';
+                }
+            }
+
             if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 60 && s.currentSegment && rundownCache[s.currentIndex + 1]) {
                 const nextName = rundownCache[s.currentIndex + 1].name || 'Next Segment';
                 if (lastRundownHintSegment !== `${s.currentIndex}:${nextName}`) {
                     const hint = document.getElementById('rundown-next-hint');
-                    hint.innerText = `Heads up: Next in rundown is "${nextName}"`;
+                    hint.innerText = `⚡ NEXT UP: ${nextName}`;
                     hint.classList.remove('hidden');
-                    setTimeout(() => hint.classList.add('hidden'), 10000);
+                    hint.style.boxShadow = '0 0 0 2px rgba(56,189,248,0.35), 0 0 22px rgba(56,189,248,0.25)';
+                    hint.style.borderColor = 'rgba(125,211,252,0.9)';
+                    activeRundownHintStep = s.currentIndex;
                     lastRundownHintSegment = `${s.currentIndex}:${nextName}`;
+
+                    const nextMessage = `NEXT: ${nextName}`;
+                    autoRundownMessageText = nextMessage;
+                    autoRundownMessageStep = s.currentIndex;
+                    try {
+                        await apiPost('/api/message/set', { text: nextMessage });
+                        if (!s.showMessage) await apiPost('/api/message/toggle', {});
+                    } catch (error) {
+                        console.warn('Could not push auto rundown message:', error.message);
+                    }
                 }
             }
 
