@@ -8,8 +8,10 @@ class TimerEngine {
       isRunning: false,
       mode: 'countdown',
       message: '',
+      messageSource: 'manual',
       showMessage: false,
       currentIndex: 0,
+      targetISO: null,
       blink_state: false,
       ...initialState,
     };
@@ -24,6 +26,13 @@ class TimerEngine {
       if (!this.state.startedAt) return this.state.pausedRemainingSeconds || 0;
       if (!this.state.isRunning) return this.state.pausedRemainingSeconds || 0;
       return Math.max(0, Math.floor((this.nowMs() - this.state.startedAt) / 1000));
+    }
+
+    if (this.state.mode === 'target') {
+      const target = this.state.targetISO ? new Date(this.state.targetISO).getTime() : null;
+      if (!target || Number.isNaN(target)) return 0;
+      const diff = Math.floor((target - this.nowMs()) / 1000);
+      return diff;
     }
 
     if (!this.state.isRunning || !this.state.targetTimestamp) {
@@ -104,7 +113,7 @@ class TimerEngine {
   }
 
   setMode(mode) {
-    const validModes = ['countdown', 'countup', 'timeofday', 'logo'];
+    const validModes = ['countdown', 'countup', 'timeofday', 'logo', 'target'];
     if (!validModes.includes(mode)) return false;
 
     this.state.mode = mode;
@@ -119,13 +128,17 @@ class TimerEngine {
       if (this.state.durationSeconds < 0) this.state.durationSeconds = 0;
       this.state.pausedRemainingSeconds = this.state.durationSeconds;
       this.state.startedAt = this.nowMs();
+    } else if (mode === 'target') {
+      this.state.startedAt = this.nowMs();
+      this.state.pausedRemainingSeconds = this.getRemainingSeconds();
     }
 
     return true;
   }
 
-  setMessage(text) {
+  setMessage(text, source = 'manual') {
     this.state.message = text || '';
+    this.state.messageSource = source;
   }
 
   toggleMessage() {
@@ -141,8 +154,10 @@ class TimerEngine {
       isRunning: this.state.isRunning,
       mode: this.state.mode,
       message: this.state.message,
+      messageSource: this.state.messageSource,
       showMessage: this.state.showMessage,
       currentIndex: this.state.currentIndex,
+      targetISO: this.state.targetISO,
     };
   }
 
@@ -156,6 +171,7 @@ class TimerEngine {
       pausedRemainingSeconds: this.state.pausedRemainingSeconds,
       targetTimestamp: this.state.targetTimestamp,
       durationSeconds: this.state.durationSeconds,
+      targetISO: this.state.targetISO,
     };
   }
 }

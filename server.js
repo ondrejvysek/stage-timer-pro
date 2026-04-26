@@ -9,6 +9,7 @@ const crypto = require('crypto');
 
 const { StateStore } = require('./backend/lib/state-store');
 const { TimerEngine } = require('./backend/lib/timer-engine');
+const { QueueEngine } = require('./backend/lib/queue-engine');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -21,9 +22,10 @@ if (!bootData.config.uuid) {
   store.saveConfig(bootData.config);
 }
 
-const bindHost = process.env.BIND_HOST || bootData.config.bindHost || '0.0.0.0';
+const bindHost = process.env.BIND_HOST || '0.0.0.0';
 const corsOrigin = process.env.CORS_ORIGIN || bootData.config.corsOrigin || '*';
 const adminToken = process.env.STAGE_TIMER_ADMIN_TOKEN || bootData.config.adminToken || '';
+const strictV2Only = process.env.STAGE_TIMER_V2_ONLY === 'true' || bootData.config.v2OnlyMode === true;
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', corsOrigin);
@@ -50,6 +52,8 @@ function getNetworkInfo() {
 
 const messagesFile = path.join(__dirname, 'messages.json');
 const logoFile = path.join(__dirname, 'logo.json');
+const logsDir = path.join(__dirname, 'logs');
+const actualsLogFile = path.join(logsDir, 'actuals.csv');
 let quickMessages = ['Wrap Up Now', 'Q&A Starting', '5 Minutes Left', 'Speak Up'];
 let logoData = '';
 
@@ -70,6 +74,11 @@ try {
 }
 
 const timer = new TimerEngine({ ...bootData.state, logoData });
+const queue = new QueueEngine(bootData.rundown, timer.state.currentIndex || 0);
+
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 function saveMessages() {
   try {
@@ -83,8 +92,19 @@ function persistState() {
   store.saveState(timer.getPersistedState());
 }
 
+function persistRundown() {
+  store.saveRundown(queue.rundown);
+}
+
 function publicState() {
-  return timer.getPublicState({ ...getNetworkInfo(), logoData: timer.state.logoData || logoData });
+  return timer.getPublicState({
+    ...getNetworkInfo(),
+    logoData: timer.state.logoData || logoData,
+    rundownLength: queue.rundown.length,
+    currentSegment: queue.getCurrent(),
+    currentIndex: queue.currentIndex,
+    v2OnlyMode: strictV2Only,
+  });
 }
 
 function broadcast() {
@@ -114,6 +134,9 @@ function parseIntField(value, fieldName, opts = {}) {
 
 function legacyRoute(pathName, handler, options = {}) {
   app.get(pathName, (req, res, next) => {
+    if (strictV2Only) {
+      return res.status(410).json({ error: 'Legacy GET routes are disabled in v2-only mode' });
+    }
     res.setHeader('Warning', '299 - Deprecated GET; use POST variant');
     if (options.auth) return requireAdmin(req, res, () => handler(req, res, next));
     return handler(req, res, next);
@@ -122,6 +145,124 @@ function legacyRoute(pathName, handler, options = {}) {
 
 function runCommand(bin, args, cb) {
   execFile(bin, args, (error, stdout, stderr) => cb(error, stdout, stderr));
+}
+
+function csvEscape(value) {
+  const str = String(value ?? '');
+  if (!/[,"\n]/.test(str)) return str;
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === '"') {
+      if (inQuotes && next === '"') { cell += '"'; i += 1; }
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+    } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+      if (ch === '\r' && next === '\n') i += 1;
+      row.push(cell);
+      if (row.some((part) => String(part).trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+    } else {
+      cell += ch;
+    }
+  }
+  if (cell.length || row.length) {
+    row.push(cell);
+    if (row.some((part) => String(part).trim() !== '')) rows.push(row);
+  }
+  return rows;
+}
+
+function parseDurationToSeconds(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Math.max(0, parseInt(value, 10));
+  const parts = value.split(':').map((p) => p.trim()).filter(Boolean).map(Number);
+  if (parts.some((n) => !Number.isFinite(n))) return 0;
+  if (parts.length === 2) return Math.max(0, (parts[0] * 60) + parts[1]);
+  if (parts.length === 3) return Math.max(0, (parts[0] * 3600) + (parts[1] * 60) + parts[2]);
+  return 0;
+}
+
+function parseRundownCsv(csvText) {
+  const rows = parseCsvRows(csvText);
+  if (!rows.length) return { segments: [], warnings: ['CSV is empty'] };
+
+  const header = rows[0].map((v) => String(v || '').trim().toLowerCase());
+  const hasHeader = header.includes('name')
+    || header.includes('segment')
+    || header.includes('duration')
+    || header.includes('mode')
+    || header.includes('notes');
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const warnings = [];
+
+  const indexOf = (keys, fallback) => {
+    for (const key of keys) {
+      const idx = header.indexOf(key);
+      if (idx >= 0) return idx;
+    }
+    return fallback;
+  };
+
+  const nameIdx = hasHeader ? indexOf(['name', 'segment', 'title'], 0) : 0;
+  const durationIdx = hasHeader ? indexOf(['duration', 'seconds', 'duration_seconds', 'time'], 1) : 1;
+  const modeIdx = hasHeader ? indexOf(['mode', 'type'], 2) : 2;
+  const notesIdx = hasHeader ? indexOf(['notes', 'note', 'optional_note'], 3) : 3;
+  const validModes = new Set(['countdown', 'countup', 'timeofday', 'logo']);
+
+  const segments = dataRows.map((cols, idx) => {
+    const rowNum = hasHeader ? idx + 2 : idx + 1;
+    const rawName = String(cols[nameIdx] || '').trim();
+    const rawMode = String(cols[modeIdx] || '').trim().toLowerCase();
+    const rawDuration = cols[durationIdx];
+    if (rawMode && !validModes.has(rawMode)) warnings.push(`Row ${rowNum}: unknown mode "${rawMode}", defaulted to countdown`);
+    const seg = queue.sanitizeSegment({
+      name: rawName || 'Untitled Segment',
+      duration: parseDurationToSeconds(rawDuration),
+      mode: validModes.has(rawMode) ? rawMode : 'countdown',
+      notes: String(cols[notesIdx] || '').trim(),
+    });
+    return seg;
+  });
+
+  return { segments, warnings };
+}
+
+function appendActualsLog(segmentName, plannedSeconds, actualSeconds) {
+  const timestamp = new Date().toISOString();
+  const delta = actualSeconds - plannedSeconds;
+  const line = [
+    csvEscape(timestamp),
+    csvEscape(segmentName),
+    csvEscape(plannedSeconds),
+    csvEscape(actualSeconds),
+    csvEscape(delta),
+  ].join(',') + '\n';
+
+  if (!fs.existsSync(actualsLogFile)) {
+    fs.writeFileSync(actualsLogFile, 'timestamp,speaker,planned_seconds,actual_seconds,delta_seconds\n');
+  }
+
+  fs.appendFileSync(actualsLogFile, line);
+}
+
+function applySegmentToTimer(segment, autoStart = false) {
+  if (!segment) return;
+  timer.setMode(segment.mode || 'countdown');
+  timer.reset(segment.duration || 0);
+  if (autoStart) timer.start();
 }
 
 app.get('/manifest.json', (req, res) => {
@@ -224,6 +365,13 @@ legacyRoute('/api/add', (req, res) => {
 
 app.post('/api/mode', requireAdmin, (req, res) => {
   const mode = req.body?.set;
+  if (mode === 'target') {
+    const targetISO = req.body?.targetISO;
+    if (!targetISO || Number.isNaN(new Date(targetISO).getTime())) {
+      return structuredError(res, 400, 'Invalid payload', 'targetISO is required for target mode');
+    }
+    timer.state.targetISO = targetISO;
+  }
   if (!timer.setMode(mode)) return structuredError(res, 400, 'Invalid payload', 'Invalid mode');
   persistState();
   broadcast();
@@ -231,6 +379,11 @@ app.post('/api/mode', requireAdmin, (req, res) => {
 });
 legacyRoute('/api/mode', (req, res) => {
   const mode = req.query?.set;
+  if (mode === 'target') {
+    const targetISO = req.query?.targetISO;
+    if (!targetISO || Number.isNaN(new Date(targetISO).getTime())) return res.status(400).send('Missing targetISO');
+    timer.state.targetISO = targetISO;
+  }
   if (!timer.setMode(mode)) return res.status(400).send('Invalid Mode');
   persistState();
   broadcast();
@@ -252,13 +405,15 @@ legacyRoute('/api/message/toggle', (req, res) => {
 
 app.post('/api/message/set', (req, res) => {
   const text = req.body?.text ?? req.query?.text ?? '';
-  timer.setMessage(String(text).slice(0, 280));
+  const sourceRaw = String(req.body?.source ?? req.query?.source ?? 'manual');
+  const source = ['manual', 'auto_rundown', 'quick_message'].includes(sourceRaw) ? sourceRaw : 'manual';
+  timer.setMessage(String(text).slice(0, 280), source);
   persistState();
   broadcast();
   res.json({ ok: true });
 });
 legacyRoute('/api/message/set', (req, res) => {
-  timer.setMessage(req.query.text || '');
+  timer.setMessage(req.query.text || '', 'manual');
   persistState();
   broadcast();
   res.send('Message Set');
@@ -267,7 +422,7 @@ legacyRoute('/api/message/set', (req, res) => {
 app.post('/api/message/trigger', (req, res) => {
   const parsed = parseIntField(req.body?.index ?? req.query?.index, 'index', { min: 0, max: quickMessages.length - 1 });
   if (parsed.error) return structuredError(res, 400, 'Invalid payload', parsed.error);
-  timer.setMessage(quickMessages[parsed.value]);
+  timer.setMessage(quickMessages[parsed.value], 'quick_message');
   timer.state.showMessage = true;
   persistState();
   broadcast();
@@ -276,7 +431,7 @@ app.post('/api/message/trigger', (req, res) => {
 legacyRoute('/api/message/trigger', (req, res) => {
   const index = parseInt(req.query.index, 10);
   if (Number.isNaN(index) || index < 0 || index >= quickMessages.length) return res.status(400).send('Invalid Message Index');
-  timer.setMessage(quickMessages[index]);
+  timer.setMessage(quickMessages[index], 'quick_message');
   timer.state.showMessage = true;
   persistState();
   broadcast();
@@ -447,6 +602,120 @@ legacyRoute('/api/messages/remove', (req, res) => {
   res.send('Removed');
 }, { auth: true });
 
+app.get('/api/rundown', (req, res) => {
+  res.json(queue.getState());
+});
+
+app.post('/api/rundown/set', requireAdmin, (req, res) => {
+  const rundown = req.body?.rundown;
+  if (!Array.isArray(rundown)) return structuredError(res, 400, 'Invalid payload', 'rundown must be an array');
+
+  queue.setRundown(rundown);
+  timer.state.currentIndex = queue.currentIndex;
+  persistRundown();
+  persistState();
+  broadcast();
+
+  res.json({ ok: true, ...queue.getState() });
+});
+
+app.post('/api/rundown/import', requireAdmin, (req, res) => {
+  const csv = String(req.body?.csv || '');
+  const importMode = req.body?.importMode === 'append' ? 'append' : 'replace';
+  if (!csv.trim()) return structuredError(res, 400, 'Invalid payload', 'csv is required');
+  const parsed = parseRundownCsv(csv);
+  if (!parsed.segments.length) return structuredError(res, 400, 'CSV import failed', parsed.warnings);
+  const combined = importMode === 'append' ? [...queue.rundown, ...parsed.segments] : parsed.segments;
+  queue.setRundown(combined);
+  persistRundown();
+  persistState();
+  broadcast();
+  return res.json({ ok: true, importMode, imported: parsed.segments.length, warnings: parsed.warnings, ...queue.getState() });
+});
+
+app.post('/api/rundown/item/add', requireAdmin, (req, res) => {
+  const segment = req.body?.segment;
+  if (!segment || typeof segment !== 'object') return structuredError(res, 400, 'Invalid payload', 'segment is required');
+  queue.addSegment(segment);
+  persistRundown();
+  broadcast();
+  res.json({ ok: true, ...queue.getState() });
+});
+
+app.post('/api/rundown/item/update', requireAdmin, (req, res) => {
+  const parsed = parseIntField(req.body?.index, 'index', { min: 0, max: queue.rundown.length - 1 });
+  if (parsed.error) return structuredError(res, 400, 'Invalid payload', parsed.error);
+  const segment = req.body?.segment;
+  if (!segment || typeof segment !== 'object') return structuredError(res, 400, 'Invalid payload', 'segment is required');
+  const updated = queue.updateSegment(parsed.value, segment);
+  persistRundown();
+  broadcast();
+  res.json({ ok: true, segment: updated, ...queue.getState() });
+});
+
+app.post('/api/rundown/item/remove', requireAdmin, (req, res) => {
+  const parsed = parseIntField(req.body?.index, 'index', { min: 0, max: queue.rundown.length - 1 });
+  if (parsed.error) return structuredError(res, 400, 'Invalid payload', parsed.error);
+  const removed = queue.removeSegment(parsed.value);
+  timer.state.currentIndex = queue.currentIndex;
+  persistRundown();
+  persistState();
+  broadcast();
+  res.json({ ok: true, removed, ...queue.getState() });
+});
+
+app.post('/api/rundown/next', requireAdmin, (req, res) => {
+  const current = queue.getCurrent();
+  if (current) {
+    const actual = current.mode === 'countdown'
+      ? Math.max(0, (current.duration || 0) - Math.max(0, timer.getRemainingSeconds()))
+      : Math.max(0, timer.getRemainingSeconds());
+    appendActualsLog(current.name, current.duration || 0, actual);
+  }
+
+  const nextSegment = queue.next();
+  if (!nextSegment) return structuredError(res, 400, 'No rundown loaded');
+
+  timer.state.currentIndex = queue.currentIndex;
+  applySegmentToTimer(nextSegment, true);
+  persistRundown();
+  persistState();
+  broadcast();
+  res.json({ ok: true, currentSegment: nextSegment, currentIndex: queue.currentIndex });
+});
+
+app.post('/api/rundown/previous', requireAdmin, (req, res) => {
+  const prevSegment = queue.previous();
+  if (!prevSegment) return structuredError(res, 400, 'No rundown loaded');
+
+  timer.state.currentIndex = queue.currentIndex;
+  applySegmentToTimer(prevSegment, false);
+  persistRundown();
+  persistState();
+  broadcast();
+  res.json({ ok: true, currentSegment: prevSegment, currentIndex: queue.currentIndex });
+});
+
+app.post('/api/rundown/run-current', requireAdmin, (req, res) => {
+  const current = queue.getCurrent();
+  if (!current) return structuredError(res, 400, 'No rundown loaded');
+  timer.state.currentIndex = queue.currentIndex;
+  applySegmentToTimer(current, true);
+  persistState();
+  broadcast();
+  res.json({ ok: true, currentSegment: current, currentIndex: queue.currentIndex });
+});
+
+app.get('/api/rundown/actuals/export', requireAdmin, (req, res) => {
+  if (!fs.existsSync(actualsLogFile)) {
+    return structuredError(res, 404, 'No actuals log available');
+  }
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=\"actuals.csv\"');
+  return fs.createReadStream(actualsLogFile).pipe(res);
+});
+
 app.get('/api/companion', (req, res) => {
   const state = publicState();
   const abs = Math.abs(state.timeLeft);
@@ -461,6 +730,9 @@ app.get('/api/companion', (req, res) => {
     mode: state.mode,
     blink_state: state.blink_state,
     messages: quickMessages,
+    current_segment: queue.getCurrent() ? queue.getCurrent().name : '',
+    current_index: queue.currentIndex,
+    rundown_length: queue.rundown.length,
   });
 });
 
@@ -469,7 +741,7 @@ setInterval(() => {
 }, 500);
 
 setInterval(() => {
-  if (timer.state.isRunning || timer.state.mode === 'timeofday') {
+  if (timer.state.isRunning || timer.state.mode === 'timeofday' || timer.state.mode === 'target') {
     broadcast();
   }
 }, 250);

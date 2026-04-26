@@ -18,9 +18,12 @@ class StageTimerInstance extends InstanceBase {
 			raw_seconds: 600,
 			over_time: "",
 			mode: "countdown",
-			blink_state: false,
-			messages: [],
-		};
+				blink_state: false,
+				messages: [],
+				current_segment: '',
+				current_index: 0,
+				rundown_length: 0,
+			};
 
 		this.initActions();
 		this.initVariables();
@@ -52,14 +55,21 @@ class StageTimerInstance extends InstanceBase {
 				width: 8,
 				regex: Regex.IP,
 			},
-			{
-				type: "textinput",
-				id: "adminToken",
-				label: "Admin Token (optional)",
-				width: 8,
-			},
-		];
-	}
+				{
+					type: "textinput",
+					id: "adminToken",
+					label: "Admin Token (optional)",
+					width: 8,
+				},
+				{
+					type: "checkbox",
+					id: "v2Only",
+					label: "v2-only mode (disable GET fallback)",
+					default: false,
+					width: 4,
+				},
+			];
+		}
 
 	startPolling() {
 		if (this.pollTimer) clearInterval(this.pollTimer);
@@ -75,12 +85,15 @@ class StageTimerInstance extends InstanceBase {
 					this.state = data;
 
 					// Push core variables
-					let updates = {
-						time: data.time,
-						raw_seconds: data.raw_seconds,
-						over_time: data.over_time,
-						mode: data.mode,
-					};
+						let updates = {
+							time: data.time,
+							raw_seconds: data.raw_seconds,
+							over_time: data.over_time,
+							mode: data.mode,
+							current_segment: data.current_segment || '',
+							current_index: data.current_index || 0,
+							rundown_length: data.rundown_length || 0,
+						};
 
 					// Push dynamic message slots (1 through 10)
 					for (let i = 0; i < 10; i++) {
@@ -106,8 +119,11 @@ class StageTimerInstance extends InstanceBase {
 		const vars = [
 			{ name: "Current Time (String)", variableId: "time" },
 			{ name: "Raw Time in Seconds", variableId: "raw_seconds" },
-			{ name: "Over Time (+MM:SS)", variableId: "over_time" },
-			{ name: "Current Mode", variableId: "mode" },
+				{ name: "Over Time (+MM:SS)", variableId: "over_time" },
+				{ name: "Current Mode", variableId: "mode" },
+				{ name: "Current Rundown Segment", variableId: "current_segment" },
+				{ name: "Current Rundown Index", variableId: "current_index" },
+				{ name: "Rundown Length", variableId: "rundown_length" },
 		];
 
 		// Define 10 dynamic slots for message bank
@@ -186,9 +202,9 @@ class StageTimerInstance extends InstanceBase {
 				if (response.ok) return;
 
 				// Compatibility fallback for older firmware still using GET query routes.
-				if (legacyQuery) {
-					await fetch(`${baseUrl}${legacyQuery}`);
-				}
+					if (!this.config.v2Only && legacyQuery) {
+						await fetch(`${baseUrl}${legacyQuery}`);
+					}
 			} catch (e) {}
 		};
 
@@ -287,7 +303,7 @@ class StageTimerInstance extends InstanceBase {
 					});
 				},
 			},
-			set_mode: {
+				set_mode: {
 				name: "Set Display Mode",
 				options: [
 					{
@@ -308,8 +324,29 @@ class StageTimerInstance extends InstanceBase {
 						body: { set: action.options.mode },
 						legacyQuery: `?set=${action.options.mode}`,
 					});
+					},
 				},
-			},
+				rundown_next: {
+					name: "Rundown: Next Segment",
+					options: [],
+					callback: async () => {
+						await sendCmd("rundown/next");
+					},
+				},
+				rundown_prev: {
+					name: "Rundown: Previous Segment",
+					options: [],
+					callback: async () => {
+						await sendCmd("rundown/previous");
+					},
+				},
+				rundown_run_current: {
+					name: "Rundown: Run Current Segment",
+					options: [],
+					callback: async () => {
+						await sendCmd("rundown/run-current");
+					},
+				},
 		});
 	}
 
@@ -468,6 +505,51 @@ class StageTimerInstance extends InstanceBase {
 				show_topbar: false,
 			},
 			steps: [{ down: [{ actionId: "add", options: { sec: -60 } }], up: [] }],
+			feedbacks: [],
+		};
+
+		presets["rundown_run_current"] = {
+			type: "button",
+			category: "Rundown Controls",
+			name: "Run Current Segment",
+			style: {
+				text: "▶\\nRUN",
+				size: "auto",
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(0, 120, 0),
+				show_topbar: false,
+			},
+			steps: [{ down: [{ actionId: "rundown_run_current", options: {} }], up: [] }],
+			feedbacks: [],
+		};
+
+		presets["rundown_prev"] = {
+			type: "button",
+			category: "Rundown Controls",
+			name: "Previous Segment",
+			style: {
+				text: "◀\\nPREV",
+				size: "auto",
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(35, 70, 120),
+				show_topbar: false,
+			},
+			steps: [{ down: [{ actionId: "rundown_prev", options: {} }], up: [] }],
+			feedbacks: [],
+		};
+
+		presets["rundown_next"] = {
+			type: "button",
+			category: "Rundown Controls",
+			name: "Next Segment",
+			style: {
+				text: "NEXT\\n▶",
+				size: "auto",
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(20, 110, 60),
+				show_topbar: false,
+			},
+			steps: [{ down: [{ actionId: "rundown_next", options: {} }], up: [] }],
 			feedbacks: [],
 		};
 

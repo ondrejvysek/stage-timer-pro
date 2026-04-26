@@ -158,6 +158,15 @@
                     <button onclick="updateFirmware()" class="sys-btn sys-btn-warn" style="flex: 1;">PULL FIRMWARE UPDATE (GIT)</button>
                 </div>
             </div>
+
+            <div class="sys-group">
+                <h3>Admin Token (for protected v2 API routes)</h3>
+                <div class="sys-row">
+                    <input type="password" id="admin-token" class="sys-input" placeholder="x-stage-timer-token">
+                    <button onclick="saveAdminToken()" class="sys-btn">SAVE</button>
+                </div>
+                <p style="font-size:11px; color:var(--text-dim); margin:0;">Stored only in this browser (localStorage).</p>
+            </div>
         </div>
     </div>
 
@@ -172,6 +181,46 @@
         </div>
     </div>
 
+    <div id="target-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 420px;">
+            <div class="modal-title">
+                COUNT TO DATE/TIME
+                <button onclick="closeTargetModal()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
+            </div>
+            <div class="sys-group">
+                <h3>Target Date & Time</h3>
+                <div class="sys-row">
+                    <input type="datetime-local" id="target-datetime" class="sys-input">
+                    <button onclick="setTargetMode()" class="sys-btn">SET</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-preview-modal" class="modal-overlay">
+        <div class="modal-content" style="width: min(920px, 96vw);">
+            <div class="modal-title">
+                CSV IMPORT PREVIEW
+                <button onclick="closeImportPreviewModal()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
+            </div>
+            <div style="display:flex; gap:16px; margin-bottom: 12px; flex-wrap: wrap;">
+                <label><input type="radio" name="import-mode" value="replace" checked> Replace rundown</label>
+                <label><input type="radio" name="import-mode" value="append"> Append to existing</label>
+            </div>
+            <div id="import-warning-box" class="hidden" style="margin-bottom:12px; padding:10px; border-radius:10px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.5); color:#fde68a;"></div>
+            <div style="max-height: 300px; overflow:auto; border:1px solid #334155; border-radius:10px;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead><tr style="background:#0b1220;"><th style="text-align:left; padding:8px;">Name</th><th style="text-align:left; padding:8px;">Duration(s)</th><th style="text-align:left; padding:8px;">Mode</th><th style="text-align:left; padding:8px;">Notes</th></tr></thead>
+                    <tbody id="import-preview-rows"></tbody>
+                </table>
+            </div>
+            <div class="custom-time-row" style="margin-top: 12px;">
+                <button onclick="closeImportPreviewModal()" class="btn-set" style="background:#334155;">Cancel</button>
+                <button onclick="confirmRundownCsvImport()" class="btn-set">Import</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
@@ -182,7 +231,6 @@
                 <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger" style="color:var(--red);">RESTART</button>
             </div>
         </header>
-
         <div class="grid">
             <div class="side-left">
                 <section class="card" style="margin-bottom: 20px;">
@@ -206,6 +254,10 @@
                         <button onclick="api('mode', '?set=timeofday')" class="btn-preset" id="mode-timeofday">Time of Day</button>
                         <button onclick="api('mode', '?set=logo')" class="btn-preset" id="mode-logo">Idle / Logo</button>
                     </div>
+                    <div class="custom-time-row" style="margin-top: 10px;">
+                        <button onclick="triggerTargetCountdown()" class="btn-preset" style="flex:1; background: rgba(37,99,235,0.15); border:1px solid rgba(37,99,235,0.4);">Count to date/time</button>
+                        <button id="target-display-btn" onclick="openTargetModal()" class="btn-preset" style="flex:1;">Select Date/Time</button>
+                    </div>
                 </section>
 
                 <section class="card">
@@ -222,6 +274,48 @@
                         <input type="number" id="custom-min" placeholder="Set Minutes..." class="input-compact">
                         <button onclick="setCustomTime()" class="btn-set">SET TIME</button>
                     </div>
+                </section>
+
+                <section class="card" style="margin-top: 20px;">
+                    <h2>Rundown (Phase 3)</h2>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+                        <div id="rundown-next-hint" class="hidden" style="flex:1; min-width:300px; background:rgba(37,99,235,0.2); border:1px solid rgba(96,165,250,0.5); color:#dbeafe; padding:10px 14px; border-radius:10px; font-weight:700;"></div>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
+                            <input id="hint-pin-toggle" type="checkbox" checked>
+                            📌 Push note to presenter
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">
+                            Trigger (sec)
+                            <input id="hint-threshold-seconds" type="number" min="1" step="1" class="sys-input" style="height:32px; width:88px;" value="60">
+                            <button onclick="saveHintThreshold()" class="sys-btn" style="height:32px; padding:0 10px;">Save</button>
+                        </label>
+                    </div>
+                    <div class="custom-time-row" style="margin-bottom: 10px;">
+                        <input type="text" id="r-name" placeholder="Segment name" class="input-compact">
+                        <input type="number" id="r-minutes" placeholder="Min" class="input-compact" style="max-width: 90px;">
+                        <input type="number" id="r-seconds" placeholder="Sec" class="input-compact" style="max-width: 90px;">
+                    </div>
+                    <div class="custom-time-row" style="margin-bottom: 10px;">
+                        <select id="r-mode" class="input-compact">
+                            <option value="countdown">Countdown</option>
+                            <option value="countup">Count-Up</option>
+                            <option value="timeofday">Time of Day</option>
+                            <option value="logo">Logo</option>
+                        </select>
+                        <button id="r-save-btn" onclick="saveRundownSegment()" class="btn-set">ADD</button>
+                    </div>
+                    <input type="text" id="r-notes" placeholder="Optional notes" class="msg-input" style="margin-bottom: 12px;">
+                    <div class="custom-time-row" style="margin-bottom: 12px; gap: 10px;">
+                        <button onclick="rundownRunCurrent()" class="btn-set" title="Run current segment" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--green);">▶</button>
+                        <button onclick="api('pause')" class="btn-set" title="Stop" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--amber);">■</button>
+                        <button onclick="rundownPrev()" class="btn-set" title="Previous segment" style="height:42px; width:42px; border-radius:999px; padding:0;">⏮</button>
+                        <button onclick="rundownNext()" class="btn-set" title="Next segment" style="height:42px; width:42px; border-radius:999px; padding:0; background: var(--green);">⏭</button>
+                        <input type="file" id="rundown-csv-input" accept=".csv,text/csv" class="hidden" onchange="importRundownCsv(this)">
+                        <button onclick="downloadRundownTemplateCsv()" class="btn-set" title="Download rundown template CSV" style="height:42px; width:42px; border-radius:999px; padding:0; background: #0f766e;">T</button>
+                        <button onclick="document.getElementById('rundown-csv-input').click()" class="btn-set" title="Import rundown CSV" style="height:42px; width:42px; border-radius:999px; padding:0; background: #1f2937;">⬆</button>
+                        <button onclick="exportActuals()" class="btn-set" title="Export CSV actuals" style="height:42px; width:42px; border-radius:999px; padding:0; background: #334155;">⬇</button>
+                    </div>
+                    <div id="rundown-list" style="display: grid; gap: 8px;"></div>
                 </section>
             </div>
 
@@ -290,11 +384,36 @@
     </div>
 
     <script>
-        const socket = io();
+            const socket = io();
+            let adminToken = localStorage.getItem('stageTimerAdminToken') || '';
+            let editingRundownIndex = null;
+            let rundownCache = [];
+            let lastRundownHintSegment = '';
+            let activeRundownHintStep = null;
+            let autoRundownMessageStep = null;
+            let autoRundownMessageText = '';
+            let hintThresholdSeconds = Number(localStorage.getItem('rundownHintThresholdSec') || 60);
+            let pendingRundownImportCsv = '';
+            let pendingRundownImportSegments = [];
+            let pendingRundownImportWarnings = [];
+            let v2OnlyMode = false;
+            let selectedTargetISO = null;
 
         // Audio Cues Logic
         let audioEnabled = false;
         let lastTimeLeft = -999;
+
+        function getHintThreshold() {
+            return Number.isFinite(hintThresholdSeconds) && hintThresholdSeconds > 0 ? Math.floor(hintThresholdSeconds) : 60;
+        }
+
+        function saveHintThreshold() {
+            const seconds = Number(document.getElementById('hint-threshold-seconds').value);
+            if (!Number.isFinite(seconds) || seconds < 1) return alert('Threshold must be at least 1 second');
+            hintThresholdSeconds = Math.floor(seconds);
+            localStorage.setItem('rundownHintThresholdSec', String(hintThresholdSeconds));
+            alert(`Saved rundown trigger threshold at ${hintThresholdSeconds}s`);
+        }
         
         function toggleAudio() {
             audioEnabled = !audioEnabled;
@@ -328,29 +447,86 @@
             } catch(e) { console.error("Audio block", e); }
         }
 
-        function api(c, v = "") { 
-            let param = "";
-            if (v !== "") {
-                const vStr = String(v);
-                param = vStr.startsWith('?') ? vStr : ('?sec=' + vStr);
-            }
-            fetch(`/api/${c}${param}`); 
+        function getApiHeaders(includeJson = true) {
+            const headers = includeJson ? { 'Content-Type': 'application/json' } : {};
+            if (adminToken) headers['x-stage-timer-token'] = adminToken;
+            return headers;
         }
 
-        function updateMsgText(){ fetch(`/api/message/set?text=${encodeURIComponent(document.getElementById('minput').value)}`); }
+        async function apiPost(path, body = {}, allowLegacyGetFallback = true) {
+            const res = await fetch(path, { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify(body) });
+            if (!res.ok) {
+                if (!v2OnlyMode && allowLegacyGetFallback && [404, 405].includes(res.status)) {
+                    return null;
+                }
+                const text = await res.text();
+                throw new Error(text || `${res.status}`);
+            }
+            return res;
+        }
+
+        async function api(c, v = "") {
+            const payload = {};
+            if (v !== "") {
+                const vStr = String(v);
+                if (vStr.startsWith('?set=')) payload.set = vStr.replace('?set=', '');
+                else payload.sec = Number(vStr);
+            }
+            try {
+                const postRes = await apiPost(`/api/${c}`, payload);
+                if (postRes) return;
+            } catch (error) {
+                console.error(error);
+            }
+
+            let param = '';
+            if (v !== '') {
+                const vStr = String(v);
+                param = vStr.startsWith('?') ? vStr : (`?sec=${vStr}`);
+            }
+            if (!v2OnlyMode) await fetch(`/api/${c}${param}`, { headers: getApiHeaders(false) });
+        }
+
+        async function updateMsgText() {
+            const text = document.getElementById('minput').value;
+            try {
+                const postRes = await apiPost('/api/message/set', { text });
+                if (postRes) return;
+            } catch (error) {
+                console.error(error);
+            }
+            if (!v2OnlyMode) fetch(`/api/message/set?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
+        }
         function setCustomTime() { const mins = document.getElementById('custom-min').value; if (mins) api('reset', parseInt(mins) * 60); }
-        function addQuickMessage() {
+        async function addQuickMessage() {
             const text = document.getElementById('minput').value.trim();
-            if(text) { fetch(`/api/messages/add?text=${encodeURIComponent(text)}`); document.getElementById('minput').value = ''; }
+            if (!text) return;
+            try {
+                const postRes = await apiPost('/api/messages/add', { text });
+                if (!v2OnlyMode && !postRes) await fetch(`/api/messages/add?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
+                document.getElementById('minput').value = '';
+            } catch (error) {
+                alert(`Save failed: ${error.message}`);
+            }
         }
 
         function openSettings() { document.getElementById('settings-modal').classList.add('active'); checkAPStatus(); }
         function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
-        function confirmRestart() { fetch('/api/system/restart'); document.getElementById('restart-modal').classList.remove('active'); setTimeout(() => { window.location.reload(); }, 4000); }
+        async function confirmRestart() {
+            try {
+                await apiPost('/api/system/restart', {});
+            } catch (error) {
+                alert(`Restart failed: ${error.message}`);
+                return;
+            }
+            document.getElementById('restart-modal').classList.remove('active');
+            setTimeout(() => { window.location.reload(); }, 4000);
+        }
         
         async function scanWifi() {
             document.getElementById('wifi-status').innerText = "Scanning...";
-            const res = await fetch('/api/system/wifi/scan');
+            let res = await fetch('/api/system/wifi/scan', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
+            if (!v2OnlyMode && !res.ok) res = await fetch('/api/system/wifi/scan', { headers: getApiHeaders(false) });
             const networks = await res.json();
             const select = document.getElementById('wifi-ssid');
             select.innerHTML = '<option value="">Select a Network...</option>';
@@ -374,8 +550,20 @@
             const pass = document.getElementById('wifi-pass').value;
             if(!ssid) return;
             document.getElementById('wifi-status').innerText = "Connecting...";
-            const res = await fetch(`/api/system/wifi/connect?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`);
-            document.getElementById('wifi-status').innerText = await res.text();
+            try {
+                let res = await fetch('/api/system/wifi/connect', {
+                    method: 'POST',
+                    headers: getApiHeaders(true),
+                    body: JSON.stringify({ ssid, password: pass })
+                });
+                if (!v2OnlyMode && !res.ok) {
+                    res = await fetch(`/api/system/wifi/connect?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { headers: getApiHeaders(false) });
+                }
+                const text = await res.text();
+                document.getElementById('wifi-status').innerText = text;
+            } catch (error) {
+                document.getElementById('wifi-status').innerText = `Connection failed: ${error.message}`;
+            }
         }
 
         function setStaticIP() {
@@ -384,19 +572,20 @@
             const mask = document.getElementById('static-mask').value;
             const gw = document.getElementById('static-gw').value;
             if(!ssid || !ip || !mask || !gw) { alert('Select a network and fill all fields (IP, Mask, Gateway)'); return; }
-            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(ip.includes('/')?ip:`${ip}/${mask}`)}&gateway=${encodeURIComponent(gw)}`);
+            const cidr = ip.includes('/') ? ip : `${ip}/${mask}`;
+            fetch('/api/system/wifi/static', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ ssid, ip: cidr, gateway: gw }) });
             alert('Static IP Applied to connection.');
         }
 
         function setAutoIP() {
             const ssid = document.getElementById('wifi-ssid').value;
             if(!ssid) return;
-            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=auto`);
+            fetch('/api/system/wifi/static', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ ssid, ip: 'auto' }) });
         }
 
         async function checkAPStatus() {
             try {
-                const res = await fetch('/api/system/ap/status');
+                const res = await fetch('/api/system/ap/status', { headers: getApiHeaders(false) });
                 const data = await res.json();
                 const badge = document.getElementById('ap-status-badge');
                 if(data.active) { badge.innerText = "ACTIVE"; badge.className = "msg-status-badge status-live"; } 
@@ -404,9 +593,374 @@
             } catch(e) {}
         }
 
-        async function toggleAP(action) { await fetch(`/api/system/ap?action=${action}`); setTimeout(checkAPStatus, 2000); }
-        function setHostname() { const name = document.getElementById('sys-hostname').value; if(name) fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`); }
-        function updateFirmware() { if(confirm('Pull updates and restart?')) fetch('/api/system/update'); }
+        async function toggleAP(action) {
+            const normalized = action === 'down' ? 'off' : action;
+            await fetch('/api/system/ap', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ action: normalized }) });
+            setTimeout(checkAPStatus, 2000);
+        }
+        function setHostname() {
+            const name = document.getElementById('sys-hostname').value;
+            if (name) fetch('/api/system/hostname', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ name }) });
+        }
+        function updateFirmware() {
+            if (confirm('Pull updates and restart?')) fetch('/api/system/update', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
+        }
+
+        function saveAdminToken() {
+            adminToken = document.getElementById('admin-token').value.trim();
+            localStorage.setItem('stageTimerAdminToken', adminToken);
+            alert('Admin token saved locally in this browser.');
+        }
+
+        function openTargetModal() { document.getElementById('target-modal').classList.add('active'); }
+        function closeTargetModal() { document.getElementById('target-modal').classList.remove('active'); }
+
+        function formatCountdownSignedDDHHMMSS(timeLeftSeconds) {
+            const sign = timeLeftSeconds > 0 ? '-' : '+';
+            const abs = Math.abs(timeLeftSeconds);
+            const days = Math.floor(abs / 86400);
+            const hours = Math.floor((abs % 86400) / 3600);
+            const mins = Math.floor((abs % 3600) / 60);
+            const secs = abs % 60;
+            return `${sign}${days.toString().padStart(2, '0')} ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        async function setTargetMode() {
+            const value = document.getElementById('target-datetime').value;
+            if (!value) return alert('Please select date and time');
+            selectedTargetISO = new Date(value).toISOString();
+            const displayBtn = document.getElementById('target-display-btn');
+            if (displayBtn) displayBtn.innerText = new Date(selectedTargetISO).toLocaleString();
+            closeTargetModal();
+        }
+
+        async function triggerTargetCountdown() {
+            if (!selectedTargetISO) return alert('Select date/time first');
+            try {
+                await apiPost('/api/mode', { set: 'target', targetISO: selectedTargetISO });
+            } catch (error) {
+                alert(`Failed to set target mode: ${error.message}`);
+            }
+        }
+
+        async function loadRundown() {
+            try {
+                const res = await fetch('/api/rundown');
+                const data = await res.json();
+                rundownCache = data.rundown || [];
+                const list = document.getElementById('rundown-list');
+                list.innerHTML = '';
+                rundownCache.forEach((segment, index) => {
+                    const row = document.createElement('div');
+                    row.draggable = true;
+                    row.dataset.index = index;
+                    row.style.cssText = `display:grid; grid-template-columns: 26px 1fr 1fr 1fr auto auto; gap:8px; align-items:center; background:${index===data.currentIndex?'rgba(37,99,235,0.2)':'#0f172a'}; border:1px solid #334155; border-radius:10px; padding:10px;`;
+                    const noteText = (segment.notes || '').trim();
+                    row.innerHTML = `
+                    <div title="Drag to reorder" style="cursor:grab; color:#93c5fd; font-size:16px; text-align:center; user-select:none;">⋮⋮</div>
+                    <div style="font-size:12px; min-width:0;">
+                        <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${index + 1}. ${segment.name}</div>
+                        <div style="font-size:10px; color:#64748b;">Segment name</div>
+                    </div>
+                    <div style="font-size:12px; min-width:0;">
+                        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#93c5fd;">${segment.mode} • ${segment.duration}s</div>
+                        <div style="font-size:10px; color:#64748b;">Type & duration</div>
+                    </div>
+                    <div style="font-size:12px; min-width:0;">
+                        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${noteText ? '#cbd5e1' : '#64748b'}; font-style:${noteText ? 'italic' : 'normal'};">${noteText || 'No optional note'}</div>
+                        <div style="font-size:10px; color:#64748b;">Optional note</div>
+                    </div>`;
+                    row.ondragstart = (e) => e.dataTransfer.setData('text/plain', String(index));
+                    row.ondragover = (e) => e.preventDefault();
+                    row.ondrop = async (e) => {
+                        e.preventDefault();
+                        const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                        const to = parseInt(row.dataset.index, 10);
+                        if (Number.isNaN(from) || Number.isNaN(to) || from === to) return;
+                        const reordered = [...rundownCache];
+                        const [moved] = reordered.splice(from, 1);
+                        reordered.splice(to, 0, moved);
+                        try {
+                            await apiPost('/api/rundown/set', { rundown: reordered });
+                            await loadRundown();
+                        } catch (error) {
+                            alert(`Reorder failed: ${error.message}`);
+                        }
+                    };
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'btn-set';
+                    editBtn.style.cssText = 'height:34px; width:34px; border-radius:999px; padding:0; display:flex; align-items:center; justify-content:center;';
+                    editBtn.innerText = '✎';
+                    editBtn.title = 'Edit segment';
+                    editBtn.onclick = () => {
+                        editingRundownIndex = index;
+                        document.getElementById('r-name').value = segment.name || '';
+                        document.getElementById('r-minutes').value = Math.floor((segment.duration || 0) / 60);
+                        document.getElementById('r-seconds').value = (segment.duration || 0) % 60;
+                        document.getElementById('r-mode').value = segment.mode || 'countdown';
+                        document.getElementById('r-notes').value = segment.notes || '';
+                        document.getElementById('r-save-btn').innerText = 'UPDATE';
+                    };
+
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn-set';
+                    delBtn.style.cssText = 'height:34px; width:34px; border-radius:999px; padding:0; display:flex; align-items:center; justify-content:center; background: var(--red);';
+                    delBtn.innerText = '✕';
+                    delBtn.title = 'Delete segment';
+                    delBtn.onclick = async () => {
+                        try {
+                            await apiPost('/api/rundown/item/remove', { index });
+                            await loadRundown();
+                        } catch (error) {
+                            alert(`Remove failed: ${error.message}`);
+                        }
+                    };
+
+                    row.appendChild(editBtn);
+                    row.appendChild(delBtn);
+                    list.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Rundown load failed', error);
+            }
+        }
+
+        async function saveRundownSegment() {
+            const mins = parseInt(document.getElementById('r-minutes').value || '0', 10);
+            const secs = parseInt(document.getElementById('r-seconds').value || '0', 10);
+            const segment = {
+                name: document.getElementById('r-name').value.trim(),
+                duration: Math.max(0, (isNaN(mins) ? 0 : mins) * 60 + (isNaN(secs) ? 0 : secs)),
+                mode: document.getElementById('r-mode').value,
+                notes: document.getElementById('r-notes').value.trim(),
+            };
+
+            try {
+                if (editingRundownIndex === null) {
+                    await apiPost('/api/rundown/item/add', { segment });
+                } else {
+                    await apiPost('/api/rundown/item/update', { index: editingRundownIndex, segment });
+                }
+                editingRundownIndex = null;
+                document.getElementById('r-save-btn').innerText = 'ADD';
+                document.getElementById('r-name').value = '';
+                document.getElementById('r-minutes').value = '';
+                document.getElementById('r-seconds').value = '';
+                document.getElementById('r-mode').value = 'countdown';
+                document.getElementById('r-notes').value = '';
+                await loadRundown();
+            } catch (error) {
+                alert(`Save failed: ${error.message}`);
+            }
+        }
+
+        async function rundownNext() {
+            try {
+                await apiPost('/api/rundown/next');
+                await loadRundown();
+            } catch (error) {
+                alert(`Next failed: ${error.message}`);
+            }
+        }
+
+        async function rundownPrev() {
+            try {
+                await apiPost('/api/rundown/previous');
+                await loadRundown();
+            } catch (error) {
+                alert(`Previous failed: ${error.message}`);
+            }
+        }
+
+        async function rundownRunCurrent() {
+            try {
+                await apiPost('/api/rundown/run-current');
+                await loadRundown();
+            } catch (error) {
+                alert(`Run failed: ${error.message}`);
+            }
+        }
+
+        async function exportActuals() {
+            try {
+                const res = await fetch('/api/rundown/actuals/export', { headers: getApiHeaders(false) });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || `${res.status}`);
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'actuals.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert(`Export failed: ${error.message}`);
+            }
+        }
+
+        function parseCsvRows(text) {
+            const rows = [];
+            let row = [];
+            let cell = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+                const next = text[i + 1];
+                if (ch === '"') {
+                    if (inQuotes && next === '"') { cell += '"'; i++; }
+                    else inQuotes = !inQuotes;
+                } else if (ch === ',' && !inQuotes) {
+                    row.push(cell);
+                    cell = '';
+                } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+                    if (ch === '\r' && next === '\n') i++;
+                    row.push(cell);
+                    if (row.some(part => String(part).trim() !== '')) rows.push(row);
+                    row = [];
+                    cell = '';
+                } else {
+                    cell += ch;
+                }
+            }
+            if (cell.length || row.length) {
+                row.push(cell);
+                if (row.some(part => String(part).trim() !== '')) rows.push(row);
+            }
+            return rows;
+        }
+
+        function parseDurationToSeconds(raw) {
+            const value = String(raw || '').trim();
+            if (!value) return 0;
+            if (/^\d+$/.test(value)) return Math.max(0, parseInt(value, 10));
+            const parts = value.split(':').map(p => p.trim()).filter(Boolean).map(Number);
+            if (parts.some(n => !Number.isFinite(n))) return 0;
+            if (parts.length === 2) return Math.max(0, parts[0] * 60 + parts[1]);
+            if (parts.length === 3) return Math.max(0, parts[0] * 3600 + parts[1] * 60 + parts[2]);
+            return 0;
+        }
+
+        function mapRundownRowsFromCsv(csvText) {
+            const rows = parseCsvRows(csvText);
+            if (!rows.length) return { segments: [], warnings: ['CSV is empty'] };
+
+            const first = rows[0].map(v => String(v || '').trim().toLowerCase());
+            const hasHeader = first.includes('name') || first.includes('segment') || first.includes('duration') || first.includes('mode') || first.includes('notes');
+            const dataRows = hasHeader ? rows.slice(1) : rows;
+            const warnings = [];
+
+            const indexOf = (keys, fallback) => {
+                for (const key of keys) {
+                    const idx = first.indexOf(key);
+                    if (idx >= 0) return idx;
+                }
+                return fallback;
+            };
+
+            const nameIdx = hasHeader ? indexOf(['name', 'segment', 'title'], 0) : 0;
+            const durationIdx = hasHeader ? indexOf(['duration', 'seconds', 'duration_seconds', 'time'], 1) : 1;
+            const modeIdx = hasHeader ? indexOf(['mode', 'type'], 2) : 2;
+            const notesIdx = hasHeader ? indexOf(['notes', 'note', 'optional_note'], 3) : 3;
+
+            const allowedModes = new Set(['countdown', 'countup', 'timeofday', 'logo']);
+            const segments = dataRows.map((cols, idx) => {
+                const rowNum = hasHeader ? idx + 2 : idx + 1;
+                const modeRaw = String(cols[modeIdx] || '').trim().toLowerCase();
+                if (modeRaw && !allowedModes.has(modeRaw)) warnings.push(`Row ${rowNum}: unknown mode "${modeRaw}", defaulted to countdown`);
+                return {
+                    name: String(cols[nameIdx] || '').trim() || 'Untitled Segment',
+                    duration: parseDurationToSeconds(cols[durationIdx]),
+                    mode: allowedModes.has(modeRaw) ? modeRaw : 'countdown',
+                    notes: String(cols[notesIdx] || '').trim(),
+                };
+            });
+            return { segments, warnings };
+        }
+
+        function openImportPreviewModal() {
+            document.getElementById('import-preview-modal').classList.add('active');
+        }
+
+        function closeImportPreviewModal() {
+            document.getElementById('import-preview-modal').classList.remove('active');
+        }
+
+        function downloadRundownTemplateCsv() {
+            const template = [
+                'name,duration,mode,notes',
+                'Opening,300,countdown,Welcome and housekeeping',
+                'Speaker A,900,countdown,Keep answers short in Q&A',
+                'Break,600,countdown,',
+                'Clock Check,0,timeofday,'
+            ].join('\n');
+            const blob = new Blob([template], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'rundown_template.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function importRundownCsv(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            try {
+                const text = await file.text();
+                const mapped = mapRundownRowsFromCsv(text);
+                if (!mapped.segments.length) return alert('No valid segments found in CSV.');
+                pendingRundownImportCsv = text;
+                pendingRundownImportSegments = mapped.segments;
+                pendingRundownImportWarnings = mapped.warnings;
+
+                const rowsEl = document.getElementById('import-preview-rows');
+                rowsEl.innerHTML = '';
+                pendingRundownImportSegments.forEach(seg => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td style="padding:8px; border-top:1px solid #334155;">${seg.name}</td>
+                                    <td style="padding:8px; border-top:1px solid #334155;">${seg.duration}</td>
+                                    <td style="padding:8px; border-top:1px solid #334155;">${seg.mode}</td>
+                                    <td style="padding:8px; border-top:1px solid #334155;">${seg.notes || ''}</td>`;
+                    rowsEl.appendChild(tr);
+                });
+                const warnEl = document.getElementById('import-warning-box');
+                if (pendingRundownImportWarnings.length) {
+                    warnEl.classList.remove('hidden');
+                    warnEl.innerHTML = `<strong>Validation warnings:</strong><br>${pendingRundownImportWarnings.join('<br>')}`;
+                } else {
+                    warnEl.classList.add('hidden');
+                    warnEl.innerHTML = '';
+                }
+                openImportPreviewModal();
+            } catch (error) {
+                alert(`CSV import failed: ${error.message}`);
+            } finally {
+                input.value = '';
+            }
+        }
+
+        async function confirmRundownCsvImport() {
+            if (!pendingRundownImportCsv) return alert('No CSV pending import.');
+            const importModeEl = document.querySelector('input[name="import-mode"]:checked');
+            const importMode = importModeEl ? importModeEl.value : 'replace';
+            try {
+                const res = await apiPost('/api/rundown/import', { csv: pendingRundownImportCsv, importMode });
+                const data = await res.json();
+                await loadRundown();
+                closeImportPreviewModal();
+                pendingRundownImportCsv = '';
+                pendingRundownImportSegments = [];
+                pendingRundownImportWarnings = [];
+                const warningMsg = data.warnings && data.warnings.length ? `\nWarnings:\n- ${data.warnings.join('\n- ')}` : '';
+                alert(`Imported ${data.imported || 0} segment(s) (${importMode}).${warningMsg}`);
+            } catch (error) {
+                alert(`Import failed: ${error.message}`);
+            }
+        }
 
         function handleLogoSelection(input) {
             const file = input.files[0];
@@ -417,7 +971,7 @@
                 try {
                     const res = await fetch('/api/system/logo/upload', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getApiHeaders(true),
                         body: JSON.stringify({ image: imageData })
                     });
                     if (!res.ok) {
@@ -435,7 +989,7 @@
 
         function clearLogo() {
             if(confirm('Clear current logo?')) {
-                fetch('/api/system/logo/clear', { method: 'POST' });
+                fetch('/api/system/logo/clear', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
                 document.getElementById('logo-input').value = '';
             }
         }
@@ -456,15 +1010,17 @@
             }
         }
 
-        socket.on('stateUpdate', s => {
+        socket.on('stateUpdate', async s => {
             document.getElementById('ip-display').innerText = s.ip;
             document.getElementById('current-ip-info').innerText = `Current Interface: ${s.ip} (Netmask: ${s.netmask || 'N/A'})`;
             
+            const previousTimeLeft = lastTimeLeft;
+
             // Audio trigger on exact cross of 0
-            if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 0 && lastTimeLeft === 1) {
+            if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 0 && previousTimeLeft === 1) {
                 playChime();
             }
-            lastTimeLeft = s.timeLeft;
+            v2OnlyMode = !!s.v2OnlyMode;
 
             if (s.logoData) updateLogoUI(s.logoData); else updateLogoUI(null);
 
@@ -473,6 +1029,62 @@
             });
             const activeBtn = document.getElementById('mode-' + s.mode);
             if(activeBtn) { activeBtn.style.border = '1px solid #60a5fa'; activeBtn.style.color = '#60a5fa'; }
+            if (s.targetISO) {
+                selectedTargetISO = s.targetISO;
+                const displayBtn = document.getElementById('target-display-btn');
+                if (displayBtn) displayBtn.innerText = new Date(selectedTargetISO).toLocaleString();
+            }
+
+            if (activeRundownHintStep !== null && s.currentIndex !== activeRundownHintStep) {
+                const hint = document.getElementById('rundown-next-hint');
+                hint.classList.add('hidden');
+                hint.style.boxShadow = 'none';
+                hint.style.borderColor = 'rgba(96,165,250,0.5)';
+                activeRundownHintStep = null;
+
+                if (autoRundownMessageStep !== null && s.currentIndex !== autoRundownMessageStep) {
+                    if (s.messageSource === 'auto_rundown') {
+                        try {
+                            if (s.showMessage) await apiPost('/api/message/toggle', {});
+                            await apiPost('/api/message/set', { text: '', source: 'manual' });
+                        } catch (error) {
+                            console.warn('Could not clear auto rundown message:', error.message);
+                        }
+                    }
+                    autoRundownMessageStep = null;
+                    autoRundownMessageText = '';
+                }
+            }
+
+            const threshold = getHintThreshold();
+            const hitThreshold = s.mode === 'countdown' && s.isRunning && previousTimeLeft > threshold && s.timeLeft <= threshold;
+            if (hitThreshold && s.currentSegment && rundownCache[s.currentIndex + 1]) {
+                const nextSegment = rundownCache[s.currentIndex + 1];
+                const nextName = nextSegment.name || 'Next Segment';
+                const nextNote = String(nextSegment.notes || '').trim();
+                if (lastRundownHintSegment !== `${s.currentIndex}:${nextName}`) {
+                    const hint = document.getElementById('rundown-next-hint');
+                    hint.innerText = nextNote ? `⚡ NEXT UP: ${nextName} — Note: ${nextNote}` : `⚡ NEXT UP: ${nextName}`;
+                    hint.classList.remove('hidden');
+                    hint.style.boxShadow = '0 0 0 2px rgba(56,189,248,0.35), 0 0 22px rgba(56,189,248,0.25)';
+                    hint.style.borderColor = 'rgba(125,211,252,0.9)';
+                    activeRundownHintStep = s.currentIndex;
+                    lastRundownHintSegment = `${s.currentIndex}:${nextName}`;
+
+                    const nextMessage = nextNote;
+                    autoRundownMessageText = nextMessage;
+                    autoRundownMessageStep = s.currentIndex;
+                    if (document.getElementById('hint-pin-toggle').checked && nextMessage) {
+                        try {
+                            await apiPost('/api/message/set', { text: nextMessage, source: 'auto_rundown' });
+                            if (!s.showMessage) await apiPost('/api/message/toggle', {});
+                        } catch (error) {
+                            console.warn('Could not push auto rundown message:', error.message);
+                        }
+                    }
+                }
+            }
+            lastTimeLeft = s.timeLeft;
 
             const monitorTime = document.getElementById('m-time');
             const monitorLogo = document.getElementById('m-logo-img');
@@ -489,8 +1101,12 @@
                     monitorTime.innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'}); 
                     monitorTime.style.color = '#22c55e';
                 } else {
-                    const abs = Math.abs(s.timeLeft);
-                    monitorTime.innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+                    if (s.mode === 'target') {
+                        monitorTime.innerText = formatCountdownSignedDDHHMMSS(s.timeLeft);
+                    } else {
+                        const abs = Math.abs(s.timeLeft);
+                        monitorTime.innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+                    }
                     if (s.mode === 'countdown') {
                         if (s.timeLeft <= 0) monitorTime.style.color = s.blink_state ? '#000000' : '#ef4444';
                         else if (s.timeLeft <= 120) monitorTime.style.color = '#f97316'; 
@@ -517,16 +1133,33 @@
                 const wrapper = document.createElement('div'); wrapper.style.position = 'relative'; wrapper.style.display = 'flex';
                 const btn = document.createElement('button'); btn.className = "btn-msg-bank";
                 btn.innerHTML = `<span class="msg-number-badge">${index + 1}</span><span>${msg}</span>`;
-                btn.onclick = () => fetch(`/api/message/trigger?index=${index}`);
+                btn.onclick = async () => {
+                    const postRes = await apiPost('/api/message/trigger', { index });
+                    if (!v2OnlyMode && !postRes) fetch(`/api/message/trigger?index=${index}`, { headers: getApiHeaders(false) });
+                };
                 
                 const delBtn = document.createElement('button'); delBtn.innerHTML = '×';
                 delBtn.style.cssText = "position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer; opacity:0; transition:opacity 0.2s;";
                 
                 wrapper.onmouseover = () => delBtn.style.opacity = "0.8"; wrapper.onmouseout = () => delBtn.style.opacity = "0";
-                delBtn.onmouseover = () => delBtn.style.opacity = "1"; delBtn.onclick = (e) => { e.stopPropagation(); fetch(`/api/messages/remove?index=${index}`); };
+                delBtn.onmouseover = () => delBtn.style.opacity = "1"; delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const postRes = await apiPost('/api/messages/remove', { index });
+                    if (!v2OnlyMode && !postRes) fetch(`/api/messages/remove?index=${index}`, { headers: getApiHeaders(false) });
+                };
                 
                 wrapper.appendChild(btn); wrapper.appendChild(delBtn); grid.appendChild(wrapper);
             });
+        });
+
+        window.addEventListener('load', () => {
+            const tokenInput = document.getElementById('admin-token');
+            if (tokenInput) tokenInput.value = adminToken;
+            const hintPinToggle = document.getElementById('hint-pin-toggle');
+            hintPinToggle.checked = localStorage.getItem('hintPinToPresenter') !== '0';
+            hintPinToggle.addEventListener('change', () => localStorage.setItem('hintPinToPresenter', hintPinToggle.checked ? '1' : '0'));
+            document.getElementById('hint-threshold-seconds').value = getHintThreshold();
+            loadRundown();
         });
     </script>
 </body>

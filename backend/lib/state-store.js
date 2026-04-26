@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
   corsOrigin: '*',
   roomName: 'Stage Timer',
   uuid: null,
+  v2OnlyMode: false,
 };
 
 const DEFAULT_STATE = {
@@ -19,8 +20,10 @@ const DEFAULT_STATE = {
   isRunning: false,
   mode: 'countdown',
   message: '',
+  messageSource: 'manual',
   showMessage: false,
   currentIndex: 0,
+  targetISO: null,
 };
 
 const DEFAULT_DISPLAY = {
@@ -29,6 +32,8 @@ const DEFAULT_DISPLAY = {
   scale: 1,
   margin: 24,
 };
+
+const DEFAULT_RUNDOWN = [];
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
@@ -55,6 +60,7 @@ class StateStore {
     this.configPath = path.join(this.dataDir, 'config.json');
     this.statePath = path.join(this.dataDir, 'state.json');
     this.displayPath = path.join(this.dataDir, 'display.json');
+    this.rundownPath = path.join(this.dataDir, 'rundown.json');
   }
 
   init() {
@@ -63,12 +69,14 @@ class StateStore {
     const config = { ...DEFAULT_CONFIG, ...readJson(this.configPath, {}) };
     const state = { ...DEFAULT_STATE, ...readJson(this.statePath, {}) };
     const display = { ...DEFAULT_DISPLAY, ...readJson(this.displayPath, {}) };
+    const rundown = readJson(this.rundownPath, DEFAULT_RUNDOWN);
 
     writeJsonAtomic(this.configPath, config);
     writeJsonAtomic(this.statePath, state);
     writeJsonAtomic(this.displayPath, display);
+    writeJsonAtomic(this.rundownPath, rundown);
 
-    return { config, state, display };
+    return { config, state, display, rundown };
   }
 
   saveState(state) {
@@ -82,6 +90,10 @@ class StateStore {
   saveDisplay(display) {
     writeJsonAtomic(this.displayPath, display);
   }
+
+  saveRundown(rundown) {
+    writeJsonAtomic(this.rundownPath, rundown);
+  }
 }
 
 module.exports = {
@@ -89,5 +101,6 @@ module.exports = {
   DEFAULT_CONFIG,
   DEFAULT_STATE,
   DEFAULT_DISPLAY,
+  DEFAULT_RUNDOWN,
   writeJsonAtomic,
 };
