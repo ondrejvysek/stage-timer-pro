@@ -231,7 +231,10 @@
                         <button onclick="api('mode', '?set=countup')" class="btn-preset" id="mode-countup">Count-Up</button>
                         <button onclick="api('mode', '?set=timeofday')" class="btn-preset" id="mode-timeofday">Time of Day</button>
                         <button onclick="api('mode', '?set=logo')" class="btn-preset" id="mode-logo">Idle / Logo</button>
-                        <button onclick="openTargetModal()" class="btn-preset" id="mode-target">Count to Date/Time</button>
+                    </div>
+                    <div class="custom-time-row" style="margin-top: 10px;">
+                        <button onclick="triggerTargetCountdown()" class="btn-preset" style="flex:1; background: rgba(37,99,235,0.15); border:1px solid rgba(37,99,235,0.4);">START COUNT TO</button>
+                        <button id="target-display-btn" onclick="openTargetModal()" class="btn-preset" style="flex:1;">Select Date/Time</button>
                     </div>
                 </section>
 
@@ -352,6 +355,7 @@
             let rundownCache = [];
             let lastRundownHintSegment = '';
             let v2OnlyMode = false;
+            let selectedTargetISO = null;
 
         // Audio Cues Logic
         let audioEnabled = false;
@@ -560,10 +564,16 @@
         async function setTargetMode() {
             const value = document.getElementById('target-datetime').value;
             if (!value) return alert('Please select date and time');
-            const targetISO = new Date(value).toISOString();
+            selectedTargetISO = new Date(value).toISOString();
+            const displayBtn = document.getElementById('target-display-btn');
+            if (displayBtn) displayBtn.innerText = new Date(selectedTargetISO).toLocaleString();
+            closeTargetModal();
+        }
+
+        async function triggerTargetCountdown() {
+            if (!selectedTargetISO) return alert('Select date/time first');
             try {
-                await apiPost('/api/mode', { set: 'target', targetISO });
-                closeTargetModal();
+                await apiPost('/api/mode', { set: 'target', targetISO: selectedTargetISO });
             } catch (error) {
                 alert(`Failed to set target mode: ${error.message}`);
             }
@@ -772,11 +782,16 @@
 
             if (s.logoData) updateLogoUI(s.logoData); else updateLogoUI(null);
 
-            document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo, #mode-target').forEach(btn => {
+            document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo').forEach(btn => {
                 btn.style.border = '1px solid transparent'; btn.style.color = '#fff';
             });
             const activeBtn = document.getElementById('mode-' + s.mode);
             if(activeBtn) { activeBtn.style.border = '1px solid #60a5fa'; activeBtn.style.color = '#60a5fa'; }
+            if (s.targetISO) {
+                selectedTargetISO = s.targetISO;
+                const displayBtn = document.getElementById('target-display-btn');
+                if (displayBtn) displayBtn.innerText = new Date(selectedTargetISO).toLocaleString();
+            }
 
             if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 60 && s.currentSegment && rundownCache[s.currentIndex + 1]) {
                 const nextName = rundownCache[s.currentIndex + 1].name || 'Next Segment';

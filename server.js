@@ -22,7 +22,7 @@ if (!bootData.config.uuid) {
   store.saveConfig(bootData.config);
 }
 
-const bindHost = process.env.BIND_HOST || bootData.config.bindHost || '0.0.0.0';
+const bindHost = process.env.BIND_HOST || '0.0.0.0';
 const corsOrigin = process.env.CORS_ORIGIN || bootData.config.corsOrigin || '*';
 const adminToken = process.env.STAGE_TIMER_ADMIN_TOKEN || bootData.config.adminToken || '';
 const strictV2Only = process.env.STAGE_TIMER_V2_ONLY === 'true' || bootData.config.v2OnlyMode === true;
