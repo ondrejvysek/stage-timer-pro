@@ -181,6 +181,22 @@
         </div>
     </div>
 
+    <div id="target-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 420px;">
+            <div class="modal-title">
+                COUNT TO DATE/TIME
+                <button onclick="closeTargetModal()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">×</button>
+            </div>
+            <div class="sys-group">
+                <h3>Target Date & Time</h3>
+                <div class="sys-row">
+                    <input type="datetime-local" id="target-datetime" class="sys-input">
+                    <button onclick="setTargetMode()" class="sys-btn">SET</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
@@ -191,6 +207,7 @@
                 <button onclick="document.getElementById('restart-modal').classList.add('active')" class="btn-header-danger" style="color:var(--red);">RESTART</button>
             </div>
         </header>
+        <div id="rundown-next-hint" class="hidden" style="background:rgba(37,99,235,0.2); border:1px solid rgba(96,165,250,0.5); color:#dbeafe; padding:10px 14px; border-radius:10px; margin-bottom:15px; font-weight:700;"></div>
 
         <div class="grid">
             <div class="side-left">
@@ -214,6 +231,7 @@
                         <button onclick="api('mode', '?set=countup')" class="btn-preset" id="mode-countup">Count-Up</button>
                         <button onclick="api('mode', '?set=timeofday')" class="btn-preset" id="mode-timeofday">Time of Day</button>
                         <button onclick="api('mode', '?set=logo')" class="btn-preset" id="mode-logo">Idle / Logo</button>
+                        <button onclick="openTargetModal()" class="btn-preset" id="mode-target">Count to Date/Time</button>
                     </div>
                 </section>
 
@@ -231,6 +249,35 @@
                         <input type="number" id="custom-min" placeholder="Set Minutes..." class="input-compact">
                         <button onclick="setCustomTime()" class="btn-set">SET TIME</button>
                     </div>
+                </section>
+
+                <section class="card" style="margin-top: 20px;">
+                    <h2>Rundown (Phase 3)</h2>
+                    <div class="custom-time-row" style="margin-bottom: 10px;">
+                        <input type="text" id="r-name" placeholder="Segment name" class="input-compact">
+                        <input type="number" id="r-minutes" placeholder="Min" class="input-compact" style="max-width: 90px;">
+                        <input type="number" id="r-seconds" placeholder="Sec" class="input-compact" style="max-width: 90px;">
+                    </div>
+                    <div class="custom-time-row" style="margin-bottom: 10px;">
+                        <select id="r-mode" class="input-compact">
+                            <option value="countdown">Countdown</option>
+                            <option value="countup">Count-Up</option>
+                            <option value="timeofday">Time of Day</option>
+                            <option value="logo">Logo</option>
+                        </select>
+                        <button id="r-save-btn" onclick="saveRundownSegment()" class="btn-set">ADD</button>
+                    </div>
+                    <input type="text" id="r-notes" placeholder="Optional notes" class="msg-input" style="margin-bottom: 12px;">
+                    <div class="custom-time-row" style="margin-bottom: 12px;">
+                        <button onclick="rundownRunCurrent()" class="btn-set" style="flex:1; background: var(--green);">RUN CURRENT</button>
+                        <button onclick="api('pause')" class="btn-set" style="flex:1; background: var(--amber);">STOP</button>
+                    </div>
+                    <div class="custom-time-row" style="margin-bottom: 12px;">
+                        <button onclick="rundownPrev()" class="btn-set" style="flex:1;">◀ PREV</button>
+                        <button onclick="rundownNext()" class="btn-set" style="flex:1; background: var(--green);">NEXT ▶</button>
+                        <button onclick="exportActuals()" class="btn-set" style="background: #334155;">CSV</button>
+                    </div>
+                    <div id="rundown-list" style="display: grid; gap: 8px;"></div>
                 </section>
             </div>
 
@@ -282,30 +329,6 @@
                     <div class="preset-grid cols-2" style="margin-bottom: 0;" id="quick-messages-grid"></div>
                 </section>
 
-                <section class="card" style="margin-bottom: 20px;">
-                    <h2>Rundown (Phase 3)</h2>
-                    <div class="custom-time-row" style="margin-bottom: 10px;">
-                        <input type="text" id="r-name" placeholder="Segment name" class="input-compact">
-                        <input type="number" id="r-duration" placeholder="Sec" class="input-compact" style="max-width: 120px;">
-                    </div>
-                    <div class="custom-time-row" style="margin-bottom: 10px;">
-                        <select id="r-mode" class="input-compact">
-                            <option value="countdown">Countdown</option>
-                            <option value="countup">Count-Up</option>
-                            <option value="timeofday">Time of Day</option>
-                            <option value="logo">Logo</option>
-                        </select>
-                        <button id="r-save-btn" onclick="saveRundownSegment()" class="btn-set">ADD</button>
-                    </div>
-                    <input type="text" id="r-notes" placeholder="Optional notes" class="msg-input" style="margin-bottom: 12px;">
-                    <div class="custom-time-row" style="margin-bottom: 12px;">
-                        <button onclick="rundownPrev()" class="btn-set" style="flex:1;">◀ PREV</button>
-                        <button onclick="rundownNext()" class="btn-set" style="flex:1; background: var(--green);">NEXT ▶</button>
-                        <button onclick="exportActuals()" class="btn-set" style="background: #334155;">CSV</button>
-                    </div>
-                    <div id="rundown-list" style="display: grid; gap: 8px;"></div>
-                </section>
-
                 <section class="card">
                     <h2>Event Logo Upload</h2>
                     <div class="logo-preview-box" id="logo-preview-container">
@@ -326,6 +349,8 @@
             const socket = io();
             let adminToken = localStorage.getItem('stageTimerAdminToken') || '';
             let editingRundownIndex = null;
+            let rundownCache = [];
+            let lastRundownHintSegment = '';
 
         // Audio Cues Logic
         let audioEnabled = false;
@@ -464,13 +489,29 @@
             alert('Admin token saved locally in this browser.');
         }
 
+        function openTargetModal() { document.getElementById('target-modal').classList.add('active'); }
+        function closeTargetModal() { document.getElementById('target-modal').classList.remove('active'); }
+
+        async function setTargetMode() {
+            const value = document.getElementById('target-datetime').value;
+            if (!value) return alert('Please select date and time');
+            const targetISO = new Date(value).toISOString();
+            try {
+                await apiPost('/api/mode', { set: 'target', targetISO });
+                closeTargetModal();
+            } catch (error) {
+                alert(`Failed to set target mode: ${error.message}`);
+            }
+        }
+
         async function loadRundown() {
             try {
                 const res = await fetch('/api/rundown');
                 const data = await res.json();
+                rundownCache = data.rundown || [];
                 const list = document.getElementById('rundown-list');
                 list.innerHTML = '';
-                (data.rundown || []).forEach((segment, index) => {
+                rundownCache.forEach((segment, index) => {
                     const row = document.createElement('div');
                     row.style.cssText = `display:flex; gap:6px; align-items:center; background:${index===data.currentIndex?'rgba(37,99,235,0.2)':'#0f172a'}; border:1px solid #334155; border-radius:10px; padding:8px;`;
                     row.innerHTML = `<div style="flex:1; font-size:12px;"><strong>${index + 1}. ${segment.name}</strong><br><span style="color:#94a3b8;">${segment.duration}s • ${segment.mode}</span></div>`;
@@ -482,7 +523,8 @@
                     editBtn.onclick = () => {
                         editingRundownIndex = index;
                         document.getElementById('r-name').value = segment.name || '';
-                        document.getElementById('r-duration').value = segment.duration || 0;
+                        document.getElementById('r-minutes').value = Math.floor((segment.duration || 0) / 60);
+                        document.getElementById('r-seconds').value = (segment.duration || 0) % 60;
                         document.getElementById('r-mode').value = segment.mode || 'countdown';
                         document.getElementById('r-notes').value = segment.notes || '';
                         document.getElementById('r-save-btn').innerText = 'UPDATE';
@@ -511,9 +553,11 @@
         }
 
         async function saveRundownSegment() {
+            const mins = parseInt(document.getElementById('r-minutes').value || '0', 10);
+            const secs = parseInt(document.getElementById('r-seconds').value || '0', 10);
             const segment = {
                 name: document.getElementById('r-name').value.trim(),
-                duration: parseInt(document.getElementById('r-duration').value || '0', 10),
+                duration: Math.max(0, (isNaN(mins) ? 0 : mins) * 60 + (isNaN(secs) ? 0 : secs)),
                 mode: document.getElementById('r-mode').value,
                 notes: document.getElementById('r-notes').value.trim(),
             };
@@ -527,7 +571,8 @@
                 editingRundownIndex = null;
                 document.getElementById('r-save-btn').innerText = 'ADD';
                 document.getElementById('r-name').value = '';
-                document.getElementById('r-duration').value = '';
+                document.getElementById('r-minutes').value = '';
+                document.getElementById('r-seconds').value = '';
                 document.getElementById('r-mode').value = 'countdown';
                 document.getElementById('r-notes').value = '';
                 await loadRundown();
@@ -551,6 +596,15 @@
                 await loadRundown();
             } catch (error) {
                 alert(`Previous failed: ${error.message}`);
+            }
+        }
+
+        async function rundownRunCurrent() {
+            try {
+                await apiPost('/api/rundown/run-current');
+                await loadRundown();
+            } catch (error) {
+                alert(`Run failed: ${error.message}`);
             }
         }
 
@@ -633,11 +687,22 @@
 
             if (s.logoData) updateLogoUI(s.logoData); else updateLogoUI(null);
 
-            document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo').forEach(btn => {
+            document.querySelectorAll('#mode-countdown, #mode-countup, #mode-timeofday, #mode-logo, #mode-target').forEach(btn => {
                 btn.style.border = '1px solid transparent'; btn.style.color = '#fff';
             });
             const activeBtn = document.getElementById('mode-' + s.mode);
             if(activeBtn) { activeBtn.style.border = '1px solid #60a5fa'; activeBtn.style.color = '#60a5fa'; }
+
+            if (s.mode === 'countdown' && s.isRunning && s.timeLeft === 60 && s.currentSegment && rundownCache[s.currentIndex + 1]) {
+                const nextName = rundownCache[s.currentIndex + 1].name || 'Next Segment';
+                if (lastRundownHintSegment !== `${s.currentIndex}:${nextName}`) {
+                    const hint = document.getElementById('rundown-next-hint');
+                    hint.innerText = `Heads up: Next in rundown is "${nextName}"`;
+                    hint.classList.remove('hidden');
+                    setTimeout(() => hint.classList.add('hidden'), 10000);
+                    lastRundownHintSegment = `${s.currentIndex}:${nextName}`;
+                }
+            }
 
             const monitorTime = document.getElementById('m-time');
             const monitorLogo = document.getElementById('m-logo-img');

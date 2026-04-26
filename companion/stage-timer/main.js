@@ -18,9 +18,12 @@ class StageTimerInstance extends InstanceBase {
 			raw_seconds: 600,
 			over_time: "",
 			mode: "countdown",
-			blink_state: false,
-			messages: [],
-		};
+				blink_state: false,
+				messages: [],
+				current_segment: '',
+				current_index: 0,
+				rundown_length: 0,
+			};
 
 		this.initActions();
 		this.initVariables();
@@ -75,12 +78,15 @@ class StageTimerInstance extends InstanceBase {
 					this.state = data;
 
 					// Push core variables
-					let updates = {
-						time: data.time,
-						raw_seconds: data.raw_seconds,
-						over_time: data.over_time,
-						mode: data.mode,
-					};
+						let updates = {
+							time: data.time,
+							raw_seconds: data.raw_seconds,
+							over_time: data.over_time,
+							mode: data.mode,
+							current_segment: data.current_segment || '',
+							current_index: data.current_index || 0,
+							rundown_length: data.rundown_length || 0,
+						};
 
 					// Push dynamic message slots (1 through 10)
 					for (let i = 0; i < 10; i++) {
@@ -106,8 +112,11 @@ class StageTimerInstance extends InstanceBase {
 		const vars = [
 			{ name: "Current Time (String)", variableId: "time" },
 			{ name: "Raw Time in Seconds", variableId: "raw_seconds" },
-			{ name: "Over Time (+MM:SS)", variableId: "over_time" },
-			{ name: "Current Mode", variableId: "mode" },
+				{ name: "Over Time (+MM:SS)", variableId: "over_time" },
+				{ name: "Current Mode", variableId: "mode" },
+				{ name: "Current Rundown Segment", variableId: "current_segment" },
+				{ name: "Current Rundown Index", variableId: "current_index" },
+				{ name: "Rundown Length", variableId: "rundown_length" },
 		];
 
 		// Define 10 dynamic slots for message bank
@@ -287,7 +296,7 @@ class StageTimerInstance extends InstanceBase {
 					});
 				},
 			},
-			set_mode: {
+				set_mode: {
 				name: "Set Display Mode",
 				options: [
 					{
@@ -308,8 +317,29 @@ class StageTimerInstance extends InstanceBase {
 						body: { set: action.options.mode },
 						legacyQuery: `?set=${action.options.mode}`,
 					});
+					},
 				},
-			},
+				rundown_next: {
+					name: "Rundown: Next Segment",
+					options: [],
+					callback: async () => {
+						await sendCmd("rundown/next");
+					},
+				},
+				rundown_prev: {
+					name: "Rundown: Previous Segment",
+					options: [],
+					callback: async () => {
+						await sendCmd("rundown/previous");
+					},
+				},
+				rundown_run_current: {
+					name: "Rundown: Run Current Segment",
+					options: [],
+					callback: async () => {
+						await sendCmd("rundown/run-current");
+					},
+				},
 		});
 	}
 

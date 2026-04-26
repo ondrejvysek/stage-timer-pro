@@ -14,6 +14,13 @@ Toggle Stage Messages on and off
 
 Smart Feedbacks: Buttons will automatically turn Green, Yellow (under 2m), and Red (0s) based on the live API polling.
 
+Phase 3 Rundown controls:
+
+- Run Current Segment
+- Next Segment
+- Previous Segment
+- Variables for current rundown segment, index, and length
+
 Configuration
 
 Enter the IP address of the Raspberry Pi running the timer server.

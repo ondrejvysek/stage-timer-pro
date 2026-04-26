@@ -273,6 +273,13 @@ legacyRoute('/api/add', (req, res) => {
 
 app.post('/api/mode', requireAdmin, (req, res) => {
   const mode = req.body?.set;
+  if (mode === 'target') {
+    const targetISO = req.body?.targetISO;
+    if (!targetISO || Number.isNaN(new Date(targetISO).getTime())) {
+      return structuredError(res, 400, 'Invalid payload', 'targetISO is required for target mode');
+    }
+    timer.state.targetISO = targetISO;
+  }
   if (!timer.setMode(mode)) return structuredError(res, 400, 'Invalid payload', 'Invalid mode');
   persistState();
   broadcast();
@@ -280,6 +287,11 @@ app.post('/api/mode', requireAdmin, (req, res) => {
 });
 legacyRoute('/api/mode', (req, res) => {
   const mode = req.query?.set;
+  if (mode === 'target') {
+    const targetISO = req.query?.targetISO;
+    if (!targetISO || Number.isNaN(new Date(targetISO).getTime())) return res.status(400).send('Missing targetISO');
+    timer.state.targetISO = targetISO;
+  }
   if (!timer.setMode(mode)) return res.status(400).send('Invalid Mode');
   persistState();
   broadcast();
@@ -576,6 +588,16 @@ app.post('/api/rundown/previous', requireAdmin, (req, res) => {
   res.json({ ok: true, currentSegment: prevSegment, currentIndex: queue.currentIndex });
 });
 
+app.post('/api/rundown/run-current', requireAdmin, (req, res) => {
+  const current = queue.getCurrent();
+  if (!current) return structuredError(res, 400, 'No rundown loaded');
+  timer.state.currentIndex = queue.currentIndex;
+  applySegmentToTimer(current, true);
+  persistState();
+  broadcast();
+  res.json({ ok: true, currentSegment: current, currentIndex: queue.currentIndex });
+});
+
 app.get('/api/rundown/actuals/export', requireAdmin, (req, res) => {
   if (!fs.existsSync(actualsLogFile)) {
     return structuredError(res, 404, 'No actuals log available');
@@ -600,6 +622,9 @@ app.get('/api/companion', (req, res) => {
     mode: state.mode,
     blink_state: state.blink_state,
     messages: quickMessages,
+    current_segment: queue.getCurrent() ? queue.getCurrent().name : '',
+    current_index: queue.currentIndex,
+    rundown_length: queue.rundown.length,
   });
 });
 
@@ -608,7 +633,7 @@ setInterval(() => {
 }, 500);
 
 setInterval(() => {
-  if (timer.state.isRunning || timer.state.mode === 'timeofday') {
+  if (timer.state.isRunning || timer.state.mode === 'timeofday' || timer.state.mode === 'target') {
     broadcast();
   }
 }, 250);

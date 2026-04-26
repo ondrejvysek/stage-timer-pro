@@ -21,6 +21,7 @@ const DEFAULT_STATE = {
   message: '',
   showMessage: false,
   currentIndex: 0,
+  targetISO: null,
 };
 
 const DEFAULT_DISPLAY = {
