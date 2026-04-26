@@ -412,16 +412,32 @@
             const file = input.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(e) {
-                fetch('/api/system/logo/upload', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: e.target.result })
-                });
+            reader.onload = async function(e) {
+                const imageData = e.target.result;
+                try {
+                    const res = await fetch('/api/system/logo/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData })
+                    });
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        alert(`Logo upload failed: ${errText}`);
+                        return;
+                    }
+                    updateLogoUI(imageData);
+                } catch (error) {
+                    alert('Logo upload failed: network error');
+                }
             };
             reader.readAsDataURL(file);
         }
 
         function clearLogo() {
-            if(confirm('Clear current logo?')) { fetch('/api/system/logo/clear'); document.getElementById('logo-input').value = ''; }
+            if(confirm('Clear current logo?')) {
+                fetch('/api/system/logo/clear', { method: 'POST' });
+                document.getElementById('logo-input').value = '';
+            }
         }
 
         function updateLogoUI(dataUrl) {
