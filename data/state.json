@@ -1,0 +1,11 @@
+{
+  "durationSeconds": 600,
+  "pausedRemainingSeconds": 600,
+  "targetTimestamp": null,
+  "startedAt": null,
+  "isRunning": false,
+  "mode": "countdown",
+  "message": "",
+  "showMessage": false,
+  "currentIndex": 0
+}

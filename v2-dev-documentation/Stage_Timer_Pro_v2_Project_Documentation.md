@@ -154,6 +154,13 @@ Done when.
 3. Unauthorized requests return 401 or 403.
 4. Companion migration path is documented.
 
+### Companion migration path for Phase 2
+
+1. New writes should use POST endpoints with JSON bodies.
+2. Legacy GET write endpoints remain temporarily available and include a deprecation `Warning` header.
+3. Sensitive operations now require `x-stage-timer-token` (admin token) whether called via POST or legacy GET.
+4. Companion module updates should prioritize `/api/start`, `/api/pause`, `/api/toggle_playback`, `/api/reset`, `/api/add`, and `/api/message/*` POST routes.
+
 ## Phase 3. Rundown and actuals
 
 Goal. Add event flow management.
