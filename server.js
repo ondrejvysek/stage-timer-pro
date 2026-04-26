@@ -96,7 +96,7 @@ function structuredError(res, code, message, details = null) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!adminToken) return structuredError(res, 503, 'Admin token is not configured');
+  if (!adminToken) return next();
   const token = req.header('x-stage-timer-token');
   if (!token) return structuredError(res, 401, 'Missing admin token');
   if (token !== adminToken) return structuredError(res, 403, 'Invalid admin token');
