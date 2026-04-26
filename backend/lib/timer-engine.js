@@ -8,6 +8,7 @@ class TimerEngine {
       isRunning: false,
       mode: 'countdown',
       message: '',
+      messageSource: 'manual',
       showMessage: false,
       currentIndex: 0,
       targetISO: null,
@@ -31,7 +32,7 @@ class TimerEngine {
       const target = this.state.targetISO ? new Date(this.state.targetISO).getTime() : null;
       if (!target || Number.isNaN(target)) return 0;
       const diff = Math.floor((target - this.nowMs()) / 1000);
-      return diff >= 0 ? diff : Math.abs(diff);
+      return diff;
     }
 
     if (!this.state.isRunning || !this.state.targetTimestamp) {
@@ -135,8 +136,9 @@ class TimerEngine {
     return true;
   }
 
-  setMessage(text) {
+  setMessage(text, source = 'manual') {
     this.state.message = text || '';
+    this.state.messageSource = source;
   }
 
   toggleMessage() {
@@ -152,6 +154,7 @@ class TimerEngine {
       isRunning: this.state.isRunning,
       mode: this.state.mode,
       message: this.state.message,
+      messageSource: this.state.messageSource,
       showMessage: this.state.showMessage,
       currentIndex: this.state.currentIndex,
       targetISO: this.state.targetISO,

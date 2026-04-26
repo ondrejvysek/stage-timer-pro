@@ -20,6 +20,7 @@ const DEFAULT_STATE = {
   isRunning: false,
   mode: 'countdown',
   message: '',
+  messageSource: 'manual',
   showMessage: false,
   currentIndex: 0,
   targetISO: null,

@@ -318,13 +318,15 @@ legacyRoute('/api/message/toggle', (req, res) => {
 
 app.post('/api/message/set', (req, res) => {
   const text = req.body?.text ?? req.query?.text ?? '';
-  timer.setMessage(String(text).slice(0, 280));
+  const sourceRaw = String(req.body?.source ?? req.query?.source ?? 'manual');
+  const source = ['manual', 'auto_rundown', 'quick_message'].includes(sourceRaw) ? sourceRaw : 'manual';
+  timer.setMessage(String(text).slice(0, 280), source);
   persistState();
   broadcast();
   res.json({ ok: true });
 });
 legacyRoute('/api/message/set', (req, res) => {
-  timer.setMessage(req.query.text || '');
+  timer.setMessage(req.query.text || '', 'manual');
   persistState();
   broadcast();
   res.send('Message Set');
@@ -333,7 +335,7 @@ legacyRoute('/api/message/set', (req, res) => {
 app.post('/api/message/trigger', (req, res) => {
   const parsed = parseIntField(req.body?.index ?? req.query?.index, 'index', { min: 0, max: quickMessages.length - 1 });
   if (parsed.error) return structuredError(res, 400, 'Invalid payload', parsed.error);
-  timer.setMessage(quickMessages[parsed.value]);
+  timer.setMessage(quickMessages[parsed.value], 'quick_message');
   timer.state.showMessage = true;
   persistState();
   broadcast();
@@ -342,7 +344,7 @@ app.post('/api/message/trigger', (req, res) => {
 legacyRoute('/api/message/trigger', (req, res) => {
   const index = parseInt(req.query.index, 10);
   if (Number.isNaN(index) || index < 0 || index >= quickMessages.length) return res.status(400).send('Invalid Message Index');
-  timer.setMessage(quickMessages[index]);
+  timer.setMessage(quickMessages[index], 'quick_message');
   timer.state.showMessage = true;
   persistState();
   broadcast();
