@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
   corsOrigin: '*',
   roomName: 'Stage Timer',
   uuid: null,
+  v2OnlyMode: false,
 };
 
 const DEFAULT_STATE = {

@@ -55,14 +55,21 @@ class StageTimerInstance extends InstanceBase {
 				width: 8,
 				regex: Regex.IP,
 			},
-			{
-				type: "textinput",
-				id: "adminToken",
-				label: "Admin Token (optional)",
-				width: 8,
-			},
-		];
-	}
+				{
+					type: "textinput",
+					id: "adminToken",
+					label: "Admin Token (optional)",
+					width: 8,
+				},
+				{
+					type: "checkbox",
+					id: "v2Only",
+					label: "v2-only mode (disable GET fallback)",
+					default: false,
+					width: 4,
+				},
+			];
+		}
 
 	startPolling() {
 		if (this.pollTimer) clearInterval(this.pollTimer);
@@ -195,9 +202,9 @@ class StageTimerInstance extends InstanceBase {
 				if (response.ok) return;
 
 				// Compatibility fallback for older firmware still using GET query routes.
-				if (legacyQuery) {
-					await fetch(`${baseUrl}${legacyQuery}`);
-				}
+					if (!this.config.v2Only && legacyQuery) {
+						await fetch(`${baseUrl}${legacyQuery}`);
+					}
 			} catch (e) {}
 		};
 

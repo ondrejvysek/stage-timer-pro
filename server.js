@@ -25,6 +25,7 @@ if (!bootData.config.uuid) {
 const bindHost = process.env.BIND_HOST || bootData.config.bindHost || '0.0.0.0';
 const corsOrigin = process.env.CORS_ORIGIN || bootData.config.corsOrigin || '*';
 const adminToken = process.env.STAGE_TIMER_ADMIN_TOKEN || bootData.config.adminToken || '';
+const strictV2Only = process.env.STAGE_TIMER_V2_ONLY === 'true' || bootData.config.v2OnlyMode === true;
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', corsOrigin);
@@ -102,6 +103,7 @@ function publicState() {
     rundownLength: queue.rundown.length,
     currentSegment: queue.getCurrent(),
     currentIndex: queue.currentIndex,
+    v2OnlyMode: strictV2Only,
   });
 }
 
@@ -132,6 +134,9 @@ function parseIntField(value, fieldName, opts = {}) {
 
 function legacyRoute(pathName, handler, options = {}) {
   app.get(pathName, (req, res, next) => {
+    if (strictV2Only) {
+      return res.status(410).json({ error: 'Legacy GET routes are disabled in v2-only mode' });
+    }
     res.setHeader('Warning', '299 - Deprecated GET; use POST variant');
     if (options.auth) return requireAdmin(req, res, () => handler(req, res, next));
     return handler(req, res, next);

@@ -351,6 +351,7 @@
             let editingRundownIndex = null;
             let rundownCache = [];
             let lastRundownHintSegment = '';
+            let v2OnlyMode = false;
 
         // Audio Cues Logic
         let audioEnabled = false;
@@ -397,7 +398,7 @@
         async function apiPost(path, body = {}, allowLegacyGetFallback = true) {
             const res = await fetch(path, { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify(body) });
             if (!res.ok) {
-                if (allowLegacyGetFallback && [404, 405].includes(res.status)) {
+                if (!v2OnlyMode && allowLegacyGetFallback && [404, 405].includes(res.status)) {
                     return null;
                 }
                 const text = await res.text();
@@ -425,7 +426,7 @@
                 const vStr = String(v);
                 param = vStr.startsWith('?') ? vStr : (`?sec=${vStr}`);
             }
-            await fetch(`/api/${c}${param}`, { headers: getApiHeaders(false) });
+            if (!v2OnlyMode) await fetch(`/api/${c}${param}`, { headers: getApiHeaders(false) });
         }
 
         async function updateMsgText() {
@@ -436,7 +437,7 @@
             } catch (error) {
                 console.error(error);
             }
-            fetch(`/api/message/set?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
+            if (!v2OnlyMode) fetch(`/api/message/set?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
         }
         function setCustomTime() { const mins = document.getElementById('custom-min').value; if (mins) api('reset', parseInt(mins) * 60); }
         async function addQuickMessage() {
@@ -444,7 +445,7 @@
             if (!text) return;
             try {
                 const postRes = await apiPost('/api/messages/add', { text });
-                if (!postRes) await fetch(`/api/messages/add?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
+                if (!v2OnlyMode && !postRes) await fetch(`/api/messages/add?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
                 document.getElementById('minput').value = '';
             } catch (error) {
                 alert(`Save failed: ${error.message}`);
@@ -467,7 +468,7 @@
         async function scanWifi() {
             document.getElementById('wifi-status').innerText = "Scanning...";
             let res = await fetch('/api/system/wifi/scan', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
-            if (!res.ok) res = await fetch('/api/system/wifi/scan', { headers: getApiHeaders(false) });
+            if (!v2OnlyMode && !res.ok) res = await fetch('/api/system/wifi/scan', { headers: getApiHeaders(false) });
             const networks = await res.json();
             const select = document.getElementById('wifi-ssid');
             select.innerHTML = '<option value="">Select a Network...</option>';
@@ -497,7 +498,7 @@
                     headers: getApiHeaders(true),
                     body: JSON.stringify({ ssid, password: pass })
                 });
-                if (!res.ok) {
+                if (!v2OnlyMode && !res.ok) {
                     res = await fetch(`/api/system/wifi/connect?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { headers: getApiHeaders(false) });
                 }
                 const text = await res.text();
@@ -767,6 +768,7 @@
                 playChime();
             }
             lastTimeLeft = s.timeLeft;
+            v2OnlyMode = !!s.v2OnlyMode;
 
             if (s.logoData) updateLogoUI(s.logoData); else updateLogoUI(null);
 
@@ -832,7 +834,7 @@
                 btn.innerHTML = `<span class="msg-number-badge">${index + 1}</span><span>${msg}</span>`;
                 btn.onclick = async () => {
                     const postRes = await apiPost('/api/message/trigger', { index });
-                    if (!postRes) fetch(`/api/message/trigger?index=${index}`, { headers: getApiHeaders(false) });
+                    if (!v2OnlyMode && !postRes) fetch(`/api/message/trigger?index=${index}`, { headers: getApiHeaders(false) });
                 };
                 
                 const delBtn = document.createElement('button'); delBtn.innerHTML = '×';
@@ -842,7 +844,7 @@
                 delBtn.onmouseover = () => delBtn.style.opacity = "1"; delBtn.onclick = async (e) => {
                     e.stopPropagation();
                     const postRes = await apiPost('/api/messages/remove', { index });
-                    if (!postRes) fetch(`/api/messages/remove?index=${index}`, { headers: getApiHeaders(false) });
+                    if (!v2OnlyMode && !postRes) fetch(`/api/messages/remove?index=${index}`, { headers: getApiHeaders(false) });
                 };
                 
                 wrapper.appendChild(btn); wrapper.appendChild(delBtn); grid.appendChild(wrapper);
