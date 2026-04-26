@@ -561,6 +561,16 @@
         function openTargetModal() { document.getElementById('target-modal').classList.add('active'); }
         function closeTargetModal() { document.getElementById('target-modal').classList.remove('active'); }
 
+        function formatCountdownSignedDDHHMMSS(timeLeftSeconds) {
+            const sign = timeLeftSeconds > 0 ? '-' : '+';
+            const abs = Math.abs(timeLeftSeconds);
+            const days = Math.floor(abs / 86400);
+            const hours = Math.floor((abs % 86400) / 3600);
+            const mins = Math.floor((abs % 3600) / 60);
+            const secs = abs % 60;
+            return `${sign}${days.toString().padStart(2, '0')} ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
         async function setTargetMode() {
             const value = document.getElementById('target-datetime').value;
             if (!value) return alert('Please select date and time');
@@ -819,8 +829,12 @@
                     monitorTime.innerText = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit'}); 
                     monitorTime.style.color = '#22c55e';
                 } else {
-                    const abs = Math.abs(s.timeLeft);
-                    monitorTime.innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+                    if (s.mode === 'countdown') {
+                        monitorTime.innerText = formatCountdownSignedDDHHMMSS(s.timeLeft);
+                    } else {
+                        const abs = Math.abs(s.timeLeft);
+                        monitorTime.innerText = (s.timeLeft < 0 ? "-" : "") + Math.floor(abs/60).toString().padStart(2,'0') + ":" + (abs%60).toString().padStart(2,'0');
+                    }
                     if (s.mode === 'countdown') {
                         if (s.timeLeft <= 0) monitorTime.style.color = s.blink_state ? '#000000' : '#ef4444';
                         else if (s.timeLeft <= 120) monitorTime.style.color = '#f97316'; 
