@@ -388,44 +388,86 @@
             } catch(e) { console.error("Audio block", e); }
         }
 
-        function api(c, v = "") { 
-            let param = "";
-            if (v !== "") {
-                const vStr = String(v);
-                param = vStr.startsWith('?') ? vStr : ('?sec=' + vStr);
-            }
-            fetch(`/api/${c}${param}`); 
-        }
-
         function getApiHeaders(includeJson = true) {
             const headers = includeJson ? { 'Content-Type': 'application/json' } : {};
             if (adminToken) headers['x-stage-timer-token'] = adminToken;
             return headers;
         }
 
-        async function apiPost(path, body = {}) {
+        async function apiPost(path, body = {}, allowLegacyGetFallback = true) {
             const res = await fetch(path, { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify(body) });
             if (!res.ok) {
+                if (allowLegacyGetFallback && [404, 405].includes(res.status)) {
+                    return null;
+                }
                 const text = await res.text();
                 throw new Error(text || `${res.status}`);
             }
             return res;
         }
 
-        function updateMsgText(){ fetch(`/api/message/set?text=${encodeURIComponent(document.getElementById('minput').value)}`); }
+        async function api(c, v = "") {
+            const payload = {};
+            if (v !== "") {
+                const vStr = String(v);
+                if (vStr.startsWith('?set=')) payload.set = vStr.replace('?set=', '');
+                else payload.sec = Number(vStr);
+            }
+            try {
+                const postRes = await apiPost(`/api/${c}`, payload);
+                if (postRes) return;
+            } catch (error) {
+                console.error(error);
+            }
+
+            let param = '';
+            if (v !== '') {
+                const vStr = String(v);
+                param = vStr.startsWith('?') ? vStr : (`?sec=${vStr}`);
+            }
+            await fetch(`/api/${c}${param}`, { headers: getApiHeaders(false) });
+        }
+
+        async function updateMsgText() {
+            const text = document.getElementById('minput').value;
+            try {
+                const postRes = await apiPost('/api/message/set', { text });
+                if (postRes) return;
+            } catch (error) {
+                console.error(error);
+            }
+            fetch(`/api/message/set?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
+        }
         function setCustomTime() { const mins = document.getElementById('custom-min').value; if (mins) api('reset', parseInt(mins) * 60); }
-        function addQuickMessage() {
+        async function addQuickMessage() {
             const text = document.getElementById('minput').value.trim();
-            if(text) { fetch(`/api/messages/add?text=${encodeURIComponent(text)}`); document.getElementById('minput').value = ''; }
+            if (!text) return;
+            try {
+                const postRes = await apiPost('/api/messages/add', { text });
+                if (!postRes) await fetch(`/api/messages/add?text=${encodeURIComponent(text)}`, { headers: getApiHeaders(false) });
+                document.getElementById('minput').value = '';
+            } catch (error) {
+                alert(`Save failed: ${error.message}`);
+            }
         }
 
         function openSettings() { document.getElementById('settings-modal').classList.add('active'); checkAPStatus(); }
         function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
-        function confirmRestart() { fetch('/api/system/restart'); document.getElementById('restart-modal').classList.remove('active'); setTimeout(() => { window.location.reload(); }, 4000); }
+        async function confirmRestart() {
+            try {
+                await apiPost('/api/system/restart', {});
+            } catch (error) {
+                alert(`Restart failed: ${error.message}`);
+                return;
+            }
+            document.getElementById('restart-modal').classList.remove('active');
+            setTimeout(() => { window.location.reload(); }, 4000);
+        }
         
         async function scanWifi() {
             document.getElementById('wifi-status').innerText = "Scanning...";
-            const res = await fetch('/api/system/wifi/scan');
+            let res = await fetch('/api/system/wifi/scan', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
+            if (!res.ok) res = await fetch('/api/system/wifi/scan', { headers: getApiHeaders(false) });
             const networks = await res.json();
             const select = document.getElementById('wifi-ssid');
             select.innerHTML = '<option value="">Select a Network...</option>';
@@ -449,8 +491,20 @@
             const pass = document.getElementById('wifi-pass').value;
             if(!ssid) return;
             document.getElementById('wifi-status').innerText = "Connecting...";
-            const res = await fetch(`/api/system/wifi/connect?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`);
-            document.getElementById('wifi-status').innerText = await res.text();
+            try {
+                let res = await fetch('/api/system/wifi/connect', {
+                    method: 'POST',
+                    headers: getApiHeaders(true),
+                    body: JSON.stringify({ ssid, password: pass })
+                });
+                if (!res.ok) {
+                    res = await fetch(`/api/system/wifi/connect?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { headers: getApiHeaders(false) });
+                }
+                const text = await res.text();
+                document.getElementById('wifi-status').innerText = text;
+            } catch (error) {
+                document.getElementById('wifi-status').innerText = `Connection failed: ${error.message}`;
+            }
         }
 
         function setStaticIP() {
@@ -459,19 +513,20 @@
             const mask = document.getElementById('static-mask').value;
             const gw = document.getElementById('static-gw').value;
             if(!ssid || !ip || !mask || !gw) { alert('Select a network and fill all fields (IP, Mask, Gateway)'); return; }
-            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=${encodeURIComponent(ip.includes('/')?ip:`${ip}/${mask}`)}&gateway=${encodeURIComponent(gw)}`);
+            const cidr = ip.includes('/') ? ip : `${ip}/${mask}`;
+            fetch('/api/system/wifi/static', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ ssid, ip: cidr, gateway: gw }) });
             alert('Static IP Applied to connection.');
         }
 
         function setAutoIP() {
             const ssid = document.getElementById('wifi-ssid').value;
             if(!ssid) return;
-            fetch(`/api/system/wifi/static?ssid=${encodeURIComponent(ssid)}&ip=auto`);
+            fetch('/api/system/wifi/static', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ ssid, ip: 'auto' }) });
         }
 
         async function checkAPStatus() {
             try {
-                const res = await fetch('/api/system/ap/status');
+                const res = await fetch('/api/system/ap/status', { headers: getApiHeaders(false) });
                 const data = await res.json();
                 const badge = document.getElementById('ap-status-badge');
                 if(data.active) { badge.innerText = "ACTIVE"; badge.className = "msg-status-badge status-live"; } 
@@ -479,9 +534,18 @@
             } catch(e) {}
         }
 
-        async function toggleAP(action) { await fetch(`/api/system/ap?action=${action}`); setTimeout(checkAPStatus, 2000); }
-        function setHostname() { const name = document.getElementById('sys-hostname').value; if(name) fetch(`/api/system/hostname?name=${encodeURIComponent(name)}`); }
-        function updateFirmware() { if(confirm('Pull updates and restart?')) fetch('/api/system/update'); }
+        async function toggleAP(action) {
+            const normalized = action === 'down' ? 'off' : action;
+            await fetch('/api/system/ap', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ action: normalized }) });
+            setTimeout(checkAPStatus, 2000);
+        }
+        function setHostname() {
+            const name = document.getElementById('sys-hostname').value;
+            if (name) fetch('/api/system/hostname', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({ name }) });
+        }
+        function updateFirmware() {
+            if (confirm('Pull updates and restart?')) fetch('/api/system/update', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
+        }
 
         function saveAdminToken() {
             adminToken = document.getElementById('admin-token').value.trim();
@@ -513,8 +577,27 @@
                 list.innerHTML = '';
                 rundownCache.forEach((segment, index) => {
                     const row = document.createElement('div');
+                    row.draggable = true;
+                    row.dataset.index = index;
                     row.style.cssText = `display:flex; gap:6px; align-items:center; background:${index===data.currentIndex?'rgba(37,99,235,0.2)':'#0f172a'}; border:1px solid #334155; border-radius:10px; padding:8px;`;
                     row.innerHTML = `<div style="flex:1; font-size:12px;"><strong>${index + 1}. ${segment.name}</strong><br><span style="color:#94a3b8;">${segment.duration}s • ${segment.mode}</span></div>`;
+                    row.ondragstart = (e) => e.dataTransfer.setData('text/plain', String(index));
+                    row.ondragover = (e) => e.preventDefault();
+                    row.ondrop = async (e) => {
+                        e.preventDefault();
+                        const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                        const to = parseInt(row.dataset.index, 10);
+                        if (Number.isNaN(from) || Number.isNaN(to) || from === to) return;
+                        const reordered = [...rundownCache];
+                        const [moved] = reordered.splice(from, 1);
+                        reordered.splice(to, 0, moved);
+                        try {
+                            await apiPost('/api/rundown/set', { rundown: reordered });
+                            await loadRundown();
+                        } catch (error) {
+                            alert(`Reorder failed: ${error.message}`);
+                        }
+                    };
 
                     const editBtn = document.createElement('button');
                     editBtn.className = 'btn-set';
@@ -636,7 +719,7 @@
                 try {
                     const res = await fetch('/api/system/logo/upload', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getApiHeaders(true),
                         body: JSON.stringify({ image: imageData })
                     });
                     if (!res.ok) {
@@ -654,7 +737,7 @@
 
         function clearLogo() {
             if(confirm('Clear current logo?')) {
-                fetch('/api/system/logo/clear', { method: 'POST' });
+                fetch('/api/system/logo/clear', { method: 'POST', headers: getApiHeaders(true), body: JSON.stringify({}) });
                 document.getElementById('logo-input').value = '';
             }
         }
@@ -747,13 +830,20 @@
                 const wrapper = document.createElement('div'); wrapper.style.position = 'relative'; wrapper.style.display = 'flex';
                 const btn = document.createElement('button'); btn.className = "btn-msg-bank";
                 btn.innerHTML = `<span class="msg-number-badge">${index + 1}</span><span>${msg}</span>`;
-                btn.onclick = () => fetch(`/api/message/trigger?index=${index}`);
+                btn.onclick = async () => {
+                    const postRes = await apiPost('/api/message/trigger', { index });
+                    if (!postRes) fetch(`/api/message/trigger?index=${index}`, { headers: getApiHeaders(false) });
+                };
                 
                 const delBtn = document.createElement('button'); delBtn.innerHTML = '×';
                 delBtn.style.cssText = "position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#ef4444; font-size:22px; cursor:pointer; opacity:0; transition:opacity 0.2s;";
                 
                 wrapper.onmouseover = () => delBtn.style.opacity = "0.8"; wrapper.onmouseout = () => delBtn.style.opacity = "0";
-                delBtn.onmouseover = () => delBtn.style.opacity = "1"; delBtn.onclick = (e) => { e.stopPropagation(); fetch(`/api/messages/remove?index=${index}`); };
+                delBtn.onmouseover = () => delBtn.style.opacity = "1"; delBtn.onclick = async (e) => {
+                    e.stopPropagation();
+                    const postRes = await apiPost('/api/messages/remove', { index });
+                    if (!postRes) fetch(`/api/messages/remove?index=${index}`, { headers: getApiHeaders(false) });
+                };
                 
                 wrapper.appendChild(btn); wrapper.appendChild(delBtn); grid.appendChild(wrapper);
             });

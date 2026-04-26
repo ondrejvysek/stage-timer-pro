@@ -501,6 +501,51 @@ class StageTimerInstance extends InstanceBase {
 			feedbacks: [],
 		};
 
+		presets["rundown_run_current"] = {
+			type: "button",
+			category: "Rundown Controls",
+			name: "Run Current Segment",
+			style: {
+				text: "▶\\nRUN",
+				size: "auto",
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(0, 120, 0),
+				show_topbar: false,
+			},
+			steps: [{ down: [{ actionId: "rundown_run_current", options: {} }], up: [] }],
+			feedbacks: [],
+		};
+
+		presets["rundown_prev"] = {
+			type: "button",
+			category: "Rundown Controls",
+			name: "Previous Segment",
+			style: {
+				text: "◀\\nPREV",
+				size: "auto",
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(35, 70, 120),
+				show_topbar: false,
+			},
+			steps: [{ down: [{ actionId: "rundown_prev", options: {} }], up: [] }],
+			feedbacks: [],
+		};
+
+		presets["rundown_next"] = {
+			type: "button",
+			category: "Rundown Controls",
+			name: "Next Segment",
+			style: {
+				text: "NEXT\\n▶",
+				size: "auto",
+				color: combineRgb(255, 255, 255),
+				bgcolor: combineRgb(20, 110, 60),
+				show_topbar: false,
+			},
+			steps: [{ down: [{ actionId: "rundown_next", options: {} }], up: [] }],
+			feedbacks: [],
+		};
+
 		this.setPresetDefinitions(presets);
 	}
 }

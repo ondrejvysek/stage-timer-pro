@@ -30,7 +30,8 @@ class TimerEngine {
     if (this.state.mode === 'target') {
       const target = this.state.targetISO ? new Date(this.state.targetISO).getTime() : null;
       if (!target || Number.isNaN(target)) return 0;
-      return Math.floor((target - this.nowMs()) / 1000);
+      const diff = Math.floor((target - this.nowMs()) / 1000);
+      return diff >= 0 ? diff : Math.abs(diff);
     }
 
     if (!this.state.isRunning || !this.state.targetTimestamp) {
