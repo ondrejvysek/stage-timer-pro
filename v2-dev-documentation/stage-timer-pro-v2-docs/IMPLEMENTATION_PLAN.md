@@ -1,4 +1,4 @@
-# Stage Timer Pro v2.0 implementation plan
+# CuePi v2.0 implementation plan
 
 This plan is written for incremental delivery. Do not attempt to implement every v2 feature in one change.
 

@@ -7,7 +7,7 @@ const DEFAULT_CONFIG = {
   adminToken: '',
   bindHost: '0.0.0.0',
   corsOrigin: '*',
-  roomName: 'Stage Timer',
+  roomName: 'CuePi',
   uuid: null,
   v2OnlyMode: false,
 };

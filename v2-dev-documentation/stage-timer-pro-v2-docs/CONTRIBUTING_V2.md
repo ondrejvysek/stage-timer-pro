@@ -1,4 +1,4 @@
-# Contributing to Stage Timer Pro v2.0
+# Contributing to CuePi v2.0
 
 ## Development approach
 

@@ -2,7 +2,7 @@
 
 ## Supported deployment model
 
-Stage Timer Pro is intended to run as a local service on Raspberry Pi OS Lite.
+CuePi is intended to run as a local service on Raspberry Pi OS Lite.
 
 Recommended runtime.
 

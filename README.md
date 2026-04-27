@@ -1,4 +1,4 @@
-# **Stage Timer Pro**
+# **CuePi**
 
 A robust, professional stage timer system built for live events, running on a Raspberry Pi.
 
@@ -62,7 +62,7 @@ Once the SD card is flashed, insert it into the Raspberry Pi, connect your HDMI 
    ssh YOUR\_USERNAME@stagetimer.local  
 3. Once logged in, run the **One-Line Installer**:
 ```
-curl -sSL https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/refs/heads/main/setup.sh?v=$RANDOM | bash
+curl -sSL https://raw.githubusercontent.com/ondrejvysek/cuepi/refs/heads/main/setup.sh?v=$RANDOM | bash
 ```
 ### **What the installer does:**
 
@@ -99,7 +99,7 @@ If you get easily distracted while producing, you can enable Audio Cues from the
 
 ## **Fallback Access Point (No Wi-Fi? No Problem)**
 
-If you take the Stage Timer to a venue with no Wi-Fi, or the local Wi-Fi drops, the Pi will automatically broadcast its own network after a minute:
+If you take the CuePi to a venue with no Wi-Fi, or the local Wi-Fi drops, the Pi will automatically broadcast its own network after a minute:
 
 * **Network Name (SSID):** StageTimer\_AP  
 * **Password:** stageadmin
@@ -183,7 +183,7 @@ Close Advanced settings window
 
 #### Step 2: Load custom module
 
-Download stage-timer-pro.pkg [https://github.com/ondrejvysek/stage-timer-pro/blob/main/companion/stage-timer/stage-timer-pro.tgz](https://github.com/ondrejvysek/stage-timer-pro/blob/main/companion/stage-timer/stage-timer-pro.tgz)
+Download cuepi.pkg [https://github.com/ondrejvysek/cuepi/blob/main/companion/stage-timer/cuepi.tgz](https://github.com/ondrejvysek/cuepi/blob/main/companion/stage-timer/cuepi.tgz)
 
 In the Companion UI, navigate to Modules, select Import module package, then select the downloaded .pkg file.
 
@@ -201,7 +201,7 @@ In the IP configuration, enter the IP address of your PI (just IP, no ports,...)
 
 ### **Bitfocus Companion: Custom Module Setup Guide (Companion Pi)**
 
-This repository includes a pre-built, custom Bitfocus Companion module designed specifically to control the Stage Timer Pro API.
+This repository includes a pre-built, custom Bitfocus Companion module designed specifically to control the CuePi API.
 
 If you are running the official Companion Pi image, the system handles custom developer modules using a pre-configured directory. Because the module is already compiled in this repository, installation takes just a few seconds.
 
@@ -217,28 +217,28 @@ You can download the module and move it to the developer folder in one action. T
 SSH into your Companion Pi and run this block:
 ```
 1. Download the repository to a temporary folder
-git clone https://github.com/ondrejvysek/stage-timer-pro.git /tmp/stage-timer-pro
+git clone https://github.com/ondrejvysek/cuepi.git /tmp/cuepi
 
 # 2. Create the developer directory and copy the pre-built files
-sudo mkdir -p /opt/companion-module-dev/stage-timer-pro
-sudo cp -r /tmp/stage-timer-pro/companion/stage-timer/* /opt/companion-module-dev/stage-timer-pro/
+sudo mkdir -p /opt/companion-module-dev/cuepi
+sudo cp -r /tmp/cuepi/companion/stage-timer/* /opt/companion-module-dev/cuepi/
 
 # 3. Navigate into the new module folder
-cd /opt/companion-module-dev/stage-timer-pro
+cd /opt/companion-module-dev/cuepi
 
 # 4. Install the required Companion Base module (It's safe to ignore Node version warnings)
 sudo npm install @companion-module/base@^1.14.1
 
 # 5. CRITICAL: Fix folder ownership so the Companion background service can read it
-sudo chown -R companion:companion /opt/companion-module-dev/stage-timer-pro
+sudo chown -R companion:companion /opt/companion-module-dev/cuepi
 
 # 6. Clean up the temporary files and restart Companion
-rm -rf /tmp/stage-timer-pro
+rm -rf /tmp/cuepi
 sudo systemctl restart companion
 ```
 
 Your file structure will now correctly look like this:
-/opt/companion-module-dev/stage-timer-pro/package.json (along with main.js, manifest.json, and HELP.md).
+/opt/companion-module-dev/cuepi/package.json (along with main.js, manifest.json, and HELP.md).
 
 ### Step 3: Restart Companion
 
@@ -250,10 +250,10 @@ Run the following command: `sudo systemctl restart companion`
 
 1. Open the Bitfocus Companion Web UI in your browser (e.g., http://<COMPANION_PI_IP>:8000).
 2. Go to the Connections tab.
-3. Under the Add Connection search bar, type Stage Timer Pro.
+3. Under the Add Connection search bar, type CuePi.
 4. You should see the custom module appear in the list.
 5. Click Add.
-6. In the configuration panel that appears, enter the IP address of your Stage Timer Pro Raspberry Pi. (If Companion is running on the exact same Pi as the timer, you can simply use 127.0.0.1 or localhost).
+6. In the configuration panel that appears, enter the IP address of your CuePi Raspberry Pi. (If Companion is running on the exact same Pi as the timer, you can simply use 127.0.0.1 or localhost).
 7. Click Save.
 
 ### Included Presets & Features
@@ -288,7 +288,7 @@ Reset the timer to specific preset durations instantly:
 
 #### 🌟 Smart Feedbacks (Dynamic Colors)
 
-The buttons on your Stream Deck are programmed to react to the live state of the Stage Timer:
+The buttons on your Stream Deck are programmed to react to the live state of the CuePi:
 
  - Green: The timer is actively running.
  - Yellow: Warning state (The timer has dropped below 2 minutes).

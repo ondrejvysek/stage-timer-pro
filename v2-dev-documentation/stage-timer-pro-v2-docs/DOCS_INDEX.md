@@ -1,4 +1,4 @@
-# Stage Timer Pro v2.0 documentation pack
+# CuePi v2.0 documentation pack
 
 This pack converts the v2 idea blueprint into implementation ready project documentation.
 
@@ -7,7 +7,7 @@ Use it as a repo ready `docs` folder plus a replacement or companion README for 
 ## Recommended placement
 
 ```text
-stage-timer-pro/
+cuepi/
 ├── README_V2.md
 ├── IMPLEMENTATION_PLAN.md
 ├── CONTRIBUTING_V2.md
@@ -49,5 +49,5 @@ Create only documentation first.
 ```text
 Add v2 documentation pack
 
-Adds technical docs for Stage Timer Pro v2.0 including architecture, state model, API contract, Socket.io events, persistence, security, discovery, sync, rundown, broadcast integrations, operations, handover, and acceptance criteria.
+Adds technical docs for CuePi v2.0 including architecture, state model, API contract, Socket.io events, persistence, security, discovery, sync, rundown, broadcast integrations, operations, handover, and acceptance criteria.
 ```

@@ -1,8 +1,8 @@
-# **Stage Timer Pro v2.0: Master Blueprint**
+# **CuePi v2.0: Master Blueprint**
 
 ## **1\. Project Vision & Philosophy**
 
-Stage Timer Pro v2.0 transitions from a single-room utility into a professional, multi-room broadcast ecosystem.
+CuePi v2.0 transitions from a single-room utility into a professional, multi-room broadcast ecosystem.
 
 * **Hardware as Appliance:** The Pi boots directly into the timer. No OS clutter.  
 * **Decentralized Mesh:** Any Pi can discover and control any other Pi on the network.  
@@ -13,7 +13,7 @@ Stage Timer Pro v2.0 transitions from a single-room utility into a professional,
 
 ### **Idea 1: Decentralized Mesh & Local Identity**
 
-* **Functionality:** This feature creates a zero-configuration network where every Stage Timer Pi automatically announces its presence. To be identifiable in a mesh, each Pi maintains a local identity (Room Name/UUID). This ensures that even if IP addresses change via DHCP, the Pi is recognized as "Ballroom A" or "Green Room" by the central controller.  
+* **Functionality:** This feature creates a zero-configuration network where every CuePi Pi automatically announces its presence. To be identifiable in a mesh, each Pi maintains a local identity (Room Name/UUID). This ensures that even if IP addresses change via DHCP, the Pi is recognized as "Ballroom A" or "Green Room" by the central controller.  
 * **Technical Solution:** \* **Identity Persistence:** Uses a local data/config.json. If missing on first boot, it generates a unique uuid. This uuid is the "Source of Truth" for the room, regardless of its IP.  
   * **Discovery Logic:** Uses the bonjour-service npm package to broadcast \_stagetimer.\_tcp. The "TXT Record" of the broadcast contains the uuid and roomName.  
   * **Mapping:** The Mesh Dashboard scans the network and maps discovered IPs to these unique UUIDs, allowing for a persistent link even after network re-assignments.  
@@ -104,7 +104,7 @@ Stage Timer Pro v2.0 transitions from a single-room utility into a professional,
 
 ## **3\. Repository Structure**
 
-stage-timer-pro/  
+cuepi/  
 ├── backend/                \# Node.js Logic  
 │   ├── lib/  
 │   │   ├── discovery.js    \# mDNS/Bonjour & Local Identity  

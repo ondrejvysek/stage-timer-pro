@@ -1,6 +1,6 @@
 # Product vision
 
-Stage Timer Pro v2.0 is a professional timing appliance for live events, conference stages, control rooms, and confidence monitors.
+CuePi v2.0 is a professional timing appliance for live events, conference stages, control rooms, and confidence monitors.
 
 The product must stay simple for operators. The system may become technically advanced internally, but the show workflow should remain direct.
 

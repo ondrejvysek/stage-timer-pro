@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Moderator Control | Stage Timer Pro</title>
+    <title>Moderator Control | CuePi</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -93,6 +93,9 @@
         .logo-preview-box { width: 100%; height: 120px; background: #000; border: 1px solid #334155; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
         .logo-preview-box img { max-width: 90%; max-height: 90%; object-fit: contain; }
         .logo-empty-text { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+        .mode-toggle { display:inline-flex; border:2px solid #14b8a6; border-radius:999px; overflow:hidden; height:36px; }
+        .mode-toggle button { border:none; background:transparent; color:#99f6e4; padding:0 16px; font-weight:700; cursor:pointer; }
+        .mode-toggle button.active { background:#14b8a6; color:#042f2e; }
 
         .hidden { display: none; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -173,7 +176,7 @@
     <div id="restart-modal" class="modal-overlay">
         <div class="modal-content" style="width: 400px; text-align: center;">
             <h3 style="color: var(--red); margin-top:0;">SYSTEM RESTART</h3>
-            <p style="color: var(--text-dim); margin-bottom: 25px;">Are you sure you want to restart the Stage Timer service?</p>
+            <p style="color: var(--text-dim); margin-bottom: 25px;">Are you sure you want to restart the CuePi service?</p>
             <div class="btn-grid">
                 <button onclick="document.getElementById('restart-modal').classList.remove('active')" class="btn btn-dim" style="padding: 15px;">CANCEL</button>
                 <button onclick="confirmRestart()" class="btn btn-toggle-on" style="padding: 15px; flex-direction: row;">RESTART</button>
@@ -223,7 +226,7 @@
 
     <div class="container">
         <header>
-            <div style="font-weight: 900; font-size: 24px;">Stage Timer Pro <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
+            <div style="font-weight: 900; font-size: 24px;">CuePi <span style="font-size: 12px; opacity: 0.5; font-weight: normal;">Moderator</span></div>
             <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div class="ip-badge" id="ip-display">Connecting...</div>
                 <button id="btn-audio" onclick="toggleAudio()" class="btn-header-danger" style="color:var(--text-dim); border-color:var(--border);">🔕 AUDIO OFF</button>
@@ -289,6 +292,13 @@
                             <input id="hint-threshold-seconds" type="number" min="1" step="1" class="sys-input" style="height:32px; width:88px;" value="60">
                             <button onclick="saveHintThreshold()" class="sys-btn" style="height:32px; padding:0 10px;">Save</button>
                         </label>
+                        <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim);">
+                            <span>At 0s:</span>
+                            <div class="mode-toggle" id="rundown-flow-toggle">
+                                <button id="rundown-flow-follow" onclick="setRundownFlowMode('follow')">Follow</button>
+                                <button id="rundown-flow-overflow" onclick="setRundownFlowMode('overflow')">Overflow</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="custom-time-row" style="margin-bottom: 10px;">
                         <input type="text" id="r-name" placeholder="Segment name" class="input-compact">
@@ -396,6 +406,8 @@
             let pendingRundownImportCsv = '';
             let pendingRundownImportSegments = [];
             let pendingRundownImportWarnings = [];
+            let autoContinueInFlight = false;
+            let rundownFlowMode = localStorage.getItem('rundownFlowMode') || 'overflow';
             let v2OnlyMode = false;
             let selectedTargetISO = null;
 
@@ -413,6 +425,13 @@
             hintThresholdSeconds = Math.floor(seconds);
             localStorage.setItem('rundownHintThresholdSec', String(hintThresholdSeconds));
             alert(`Saved rundown trigger threshold at ${hintThresholdSeconds}s`);
+        }
+
+        function setRundownFlowMode(mode) {
+            rundownFlowMode = mode === 'follow' ? 'follow' : 'overflow';
+            localStorage.setItem('rundownFlowMode', rundownFlowMode);
+            document.getElementById('rundown-flow-follow').classList.toggle('active', rundownFlowMode === 'follow');
+            document.getElementById('rundown-flow-overflow').classList.toggle('active', rundownFlowMode === 'overflow');
         }
         
         function toggleAudio() {
@@ -1084,6 +1103,20 @@
                     }
                 }
             }
+
+            const autoContinueEnabled = rundownFlowMode === 'follow';
+            const crossedZero = s.mode === 'countdown' && s.isRunning && previousTimeLeft > 0 && s.timeLeft <= 0;
+            if (autoContinueEnabled && crossedZero && rundownCache[s.currentIndex + 1] && !autoContinueInFlight) {
+                autoContinueInFlight = true;
+                try {
+                    await apiPost('/api/rundown/next');
+                    await loadRundown();
+                } catch (error) {
+                    console.warn('Auto-continue failed:', error.message);
+                } finally {
+                    autoContinueInFlight = false;
+                }
+            }
             lastTimeLeft = s.timeLeft;
 
             const monitorTime = document.getElementById('m-time');
@@ -1158,6 +1191,7 @@
             const hintPinToggle = document.getElementById('hint-pin-toggle');
             hintPinToggle.checked = localStorage.getItem('hintPinToPresenter') !== '0';
             hintPinToggle.addEventListener('change', () => localStorage.setItem('hintPinToPresenter', hintPinToggle.checked ? '1' : '0'));
+            setRundownFlowMode(localStorage.getItem('rundownFlowMode') || 'overflow');
             document.getElementById('hint-threshold-seconds').value = getHintThreshold();
             loadRundown();
         });

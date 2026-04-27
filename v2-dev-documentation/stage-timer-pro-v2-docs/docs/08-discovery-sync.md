@@ -2,7 +2,7 @@
 
 ## Discovery goal
 
-Multiple Stage Timer Pro nodes should find each other without manual IP entry.
+Multiple CuePi nodes should find each other without manual IP entry.
 
 Each node has a stable UUID. Room name can change, IP address can change, UUID remains the same.
 

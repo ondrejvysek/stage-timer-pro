@@ -267,8 +267,8 @@ function applySegmentToTimer(segment, autoStart = false) {
 
 app.get('/manifest.json', (req, res) => {
   res.json({
-    name: 'Stage Timer Pro',
-    short_name: 'Stage Timer',
+    name: 'CuePi',
+    short_name: 'CuePi',
     start_url: '/',
     display: 'standalone',
     background_color: '#0f172a',
