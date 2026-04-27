@@ -1,6 +1,6 @@
-Stage Timer Pro Module
+CuePi Module
 
-This is a custom Bitfocus Companion module built to control the Raspberry Pi Stage Timer Pro API.
+This is a custom Bitfocus Companion module built to control the Raspberry Pi CuePi API.
 
 Features
 

@@ -1,13 +1,13 @@
 #!/bin/bash
-# Stage Timer Pro - Automated Install Script
+# CuePi - Automated Install Script
 # Fetches the latest code from Git, configures X11, Boot Splash, and Autologin
 
 echo "================================================="
-echo "  Stage Timer Pro - Automated Deployment"
+echo "  CuePi - Automated Deployment"
 echo "================================================="
 
 # --- CONFIGURATION ---
-REPO_URL="https://github.com/ondrejvysek/stage-timer-pro.git"
+REPO_URL="https://github.com/ondrejvysek/cuepi.git"
 CURRENT_USER=$(whoami)
 APP_DIR="$HOME/stage-timer"
 
@@ -47,7 +47,7 @@ sudo mkdir -p "$THEME_DIR"
 sudo tee "$THEME_DIR/stagetimer.plymouth" > /dev/null << EOF
 [Plymouth Theme]
 Name=StageTimer
-Description=Stage Timer Pro Custom Splash
+Description=CuePi Custom Splash
 ModuleName=script
 
 [script]
@@ -99,7 +99,7 @@ done
 # Create the Node.js Server Service
 sudo tee /etc/systemd/system/stage-timer.service > /dev/null << EOF
 [Unit]
-Description=Stage Timer Node Server
+Description=CuePi Node Server
 After=network.target
 
 [Service]

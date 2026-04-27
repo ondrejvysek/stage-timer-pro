@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Presenter View | Stage Timer Pro</title>
+    <title>Presenter View | CuePi</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* Attempt to load web fonts, but provide robust, smooth local fallbacks if offline */
@@ -106,6 +106,16 @@
         let currentMode = 'countdown';
         let localTimeInterval = null;
 
+        function formatCountdownSignedDDHHMMSS(timeLeftSeconds) {
+            const sign = timeLeftSeconds > 0 ? '-' : '+';
+            const abs = Math.abs(timeLeftSeconds);
+            const days = Math.floor(abs / 86400);
+            const hours = Math.floor((abs % 86400) / 3600);
+            const mins = Math.floor((abs % 3600) / 60);
+            const secs = abs % 60;
+            return `${sign}${days.toString().padStart(2, '0')} ${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
         socket.on('stateUpdate', (state) => {
             currentMode = state.mode;
 
@@ -152,10 +162,14 @@
                 logoDisplay.style.display = 'none';
                 document.getElementById('clock-container').style.display = 'flex';
                 document.getElementById('progress-container').style.display = 'block';
-                const absTime = Math.abs(state.timeLeft);
-                const mins = Math.floor(absTime / 60);
-                const secs = absTime % 60;
-                const timeStr = `${state.timeLeft < 0 ? '-' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                const timeStr = state.mode === 'target'
+                    ? formatCountdownSignedDDHHMMSS(state.timeLeft)
+                    : (() => {
+                        const absTime = Math.abs(state.timeLeft);
+                        const mins = Math.floor(absTime / 60);
+                        const secs = absTime % 60;
+                        return `${state.timeLeft < 0 ? '-' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                    })();
                 clock.innerText = timeStr;
                 clock.style.opacity = "1";
 

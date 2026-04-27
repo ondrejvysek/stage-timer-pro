@@ -1,7 +1,7 @@
 {
-"name": "stage-timer-pro",
+"name": "cuepi",
 "version": "1.0.0",
-"description": "Professional Stage Timer for Raspberry Pi",
+"description": "Professional CuePi for Raspberry Pi",
 "main": "server.js",
 "scripts": {
 "start": "node server.js"

@@ -1,4 +1,4 @@
-# Stage Timer Pro v2.0 project documentation
+# CuePi v2.0 project documentation
 
 This file combines the documentation pack into one handover document.
 
@@ -7,9 +7,9 @@ This file combines the documentation pack into one handover document.
 
 <!-- Source: README_V2.md -->
 
-# Stage Timer Pro v2.0
+# CuePi v2.0
 
-Stage Timer Pro v2.0 is the planned next major version of Stage Timer Pro. It moves the project from a single room Raspberry Pi timer into a resilient live event timing appliance with rundown control, local persistence, broadcast display modes, optional mesh discovery, and optional automation integrations.
+CuePi v2.0 is the planned next major version of CuePi. It moves the project from a single room Raspberry Pi timer into a resilient live event timing appliance with rundown control, local persistence, broadcast display modes, optional mesh discovery, and optional automation integrations.
 
 The current project is a compact Node.js and Socket.io application with a moderator UI, presenter kiosk, setup scripts, fallback access point behavior, and Companion integration. Version 2 keeps that direction, but introduces a cleaner architecture and a safer state model.
 
@@ -56,7 +56,7 @@ NDI input should be considered Raspberry Pi 5 only and experimental.
 ## Planned repository structure
 
 ```text
-stage-timer-pro/
+cuepi/
 ├── backend/
 │   ├── lib/
 │   │   ├── api-auth.js
@@ -93,7 +93,7 @@ The backend owns state. Frontend screens render state. Integrations trigger comm
 
 <!-- Source: IMPLEMENTATION_PLAN.md -->
 
-# Stage Timer Pro v2.0 implementation plan
+# CuePi v2.0 implementation plan
 
 This plan is written for incremental delivery. Do not attempt to implement every v2 feature in one change.
 
@@ -153,6 +153,13 @@ Done when.
 2. Invalid payloads return structured 400 errors.
 3. Unauthorized requests return 401 or 403.
 4. Companion migration path is documented.
+
+### Companion migration path for Phase 2
+
+1. New writes should use POST endpoints with JSON bodies.
+2. Legacy GET write endpoints remain temporarily available and include a deprecation `Warning` header.
+3. Sensitive operations now require `x-stage-timer-token` (admin token) whether called via POST or legacy GET.
+4. Companion module updates should prioritize `/api/start`, `/api/pause`, `/api/toggle_playback`, `/api/reset`, `/api/add`, and `/api/message/*` POST routes.
 
 ## Phase 3. Rundown and actuals
 
@@ -288,7 +295,7 @@ Done when.
 
 <!-- Source: CONTRIBUTING_V2.md -->
 
-# Contributing to Stage Timer Pro v2.0
+# Contributing to CuePi v2.0
 
 ## Development approach
 
@@ -367,7 +374,7 @@ Document API contract
 
 # Product vision
 
-Stage Timer Pro v2.0 is a professional timing appliance for live events, conference stages, control rooms, and confidence monitors.
+CuePi v2.0 is a professional timing appliance for live events, conference stages, control rooms, and confidence monitors.
 
 The product must stay simple for operators. The system may become technically advanced internally, but the show workflow should remain direct.
 
@@ -770,7 +777,7 @@ Returns basic service status.
 {
   "ok": true,
   "data": {
-    "service": "stage-timer-pro",
+    "service": "cuepi",
     "version": "2.0.0",
     "uptimeSeconds": 1234
   }
@@ -1393,7 +1400,7 @@ Import must be validate first, write second.
 
 ## Security goal
 
-Stage Timer Pro usually runs on local event networks. Local does not mean trusted. Any device on the same network may be able to reach the Pi.
+CuePi usually runs on local event networks. Local does not mean trusted. Any device on the same network may be able to reach the Pi.
 
 The system must protect actions that can interrupt a show, change the device, or execute system commands.
 
@@ -1571,7 +1578,7 @@ Do not log tokens or Wi-Fi passwords.
 
 ## Discovery goal
 
-Multiple Stage Timer Pro nodes should find each other without manual IP entry.
+Multiple CuePi nodes should find each other without manual IP entry.
 
 Each node has a stable UUID. Room name can change, IP address can change, UUID remains the same.
 
@@ -1959,7 +1966,7 @@ Do not include it in the first core implementation. It is CPU intensive and shou
 
 ## Supported deployment model
 
-Stage Timer Pro is intended to run as a local service on Raspberry Pi OS Lite.
+CuePi is intended to run as a local service on Raspberry Pi OS Lite.
 
 Recommended runtime.
 
