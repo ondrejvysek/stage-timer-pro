@@ -39,7 +39,7 @@ Returns basic service status.
 {
   "ok": true,
   "data": {
-    "service": "stage-timer-pro",
+    "service": "cuepi",
     "version": "2.0.0",
     "uptimeSeconds": 1234
   }

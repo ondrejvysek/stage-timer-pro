@@ -1,8 +1,20 @@
-# **Stage Timer Pro**
+# **CuePi**
 
 A robust, professional stage timer system built for live events, running on a Raspberry Pi.
 
 The system features a centralized Node.js backend, a responsive web-based **Moderator UI** for operators, and a fully autonomous Wayland/X11 **Presenter Kiosk** that outputs directly to an HDMI display. It is designed to be highly resilient, featuring offline font fallbacks, a custom Boot Splash Screen, an automatic Wi-Fi Access Point if the primary network drops, and deep integrations for professional environments.
+
+## What's New in v2-Dev
+
+The v2-Dev branch introduces a major backend upgrade focused on reliability and operator safety:
+
+* **Timestamp-based timer engine** (`targetTimestamp`) for accurate pause/resume and restart-safe countdown behavior.
+* **Persistent JSON state store** (`data/config.json`, `data/state.json`, `data/display.json`, `data/rundown.json`) with atomic writes.
+* **Rundown engine** with persistent segment queue, Next/Previous controls, and current segment tracking.
+* **Actuals logging** with CSV export (`/api/rundown/actuals/export`) for post-show reporting.
+* **Modernized API** with JSON `POST` routes for state-changing operations, structured validation errors, and legacy GET compatibility wrappers.
+* **Optional admin-token protection** using `x-stage-timer-token` for sensitive actions.
+* **Companion module updates** to support v2 POST routes and admin token headers.
 
 If you like the project, you can support future development:
 
@@ -50,7 +62,7 @@ Once the SD card is flashed, insert it into the Raspberry Pi, connect your HDMI 
    ssh YOUR\_USERNAME@stagetimer.local  
 3. Once logged in, run the **One-Line Installer**:
 ```
-curl -sSL https://raw.githubusercontent.com/ondrejvysek/stage-timer-pro/refs/heads/main/setup.sh?v=$RANDOM | bash
+curl -sSL https://raw.githubusercontent.com/ondrejvysek/cuepi/refs/heads/main/setup.sh?v=$RANDOM | bash
 ```
 ### **What the installer does:**
 
@@ -87,7 +99,7 @@ If you get easily distracted while producing, you can enable Audio Cues from the
 
 ## **Fallback Access Point (No Wi-Fi? No Problem)**
 
-If you take the Stage Timer to a venue with no Wi-Fi, or the local Wi-Fi drops, the Pi will automatically broadcast its own network after a minute:
+If you take the CuePi to a venue with no Wi-Fi, or the local Wi-Fi drops, the Pi will automatically broadcast its own network after a minute:
 
 * **Network Name (SSID):** StageTimer\_AP  
 * **Password:** stageadmin
@@ -104,6 +116,53 @@ The Moderator UI features a hidden **Settings Modal** (Click the Gear Icon in th
 * Change the Pi's hostname.  
 * Upload a custom event logo for the Idle display screen.  
 * **Pull Firmware Update (Git):** Instantly downloads the latest code from this repository and restarts the timer service.
+
+## **Admin Token (v2 API Protection)**
+
+In v2-Dev, protected routes (reset/system/rundown/admin actions) can require an admin token.
+
+### Where to find or set the token
+
+There are two supported sources:
+
+1. **Environment variable (recommended for production):**
+   * `STAGE_TIMER_ADMIN_TOKEN`
+2. **Config file fallback:**
+   * `~/stage-timer/data/config.json` → `adminToken`
+
+If both are set, the environment variable takes priority.
+
+### Quick setup on Raspberry Pi (systemd)
+
+Edit the service:
+
+```bash
+sudo systemctl edit stage-timer
+```
+
+Add:
+
+```ini
+[Service]
+Environment="STAGE_TIMER_ADMIN_TOKEN=CHANGE_ME_TO_A_STRONG_SECRET"
+```
+
+Then reload + restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart stage-timer
+```
+
+### Using the token
+
+Send it as an HTTP header on protected endpoints:
+
+```http
+x-stage-timer-token: YOUR_SECRET_TOKEN
+```
+
+The Companion module now includes an optional **Admin Token** config field and automatically sends this header when configured.
 
 ## **Elgato Stream Deck / Bitfocus Companion Integration**
 
@@ -124,7 +183,7 @@ Close Advanced settings window
 
 #### Step 2: Load custom module
 
-Download stage-timer-pro.pkg [https://github.com/ondrejvysek/stage-timer-pro/blob/main/companion/stage-timer/stage-timer-pro.tgz](https://github.com/ondrejvysek/stage-timer-pro/blob/main/companion/stage-timer/stage-timer-pro.tgz)
+Download cuepi.pkg [https://github.com/ondrejvysek/cuepi/blob/main/companion/stage-timer/cuepi.tgz](https://github.com/ondrejvysek/cuepi/blob/main/companion/stage-timer/cuepi.tgz)
 
 In the Companion UI, navigate to Modules, select Import module package, then select the downloaded .pkg file.
 
@@ -142,7 +201,7 @@ In the IP configuration, enter the IP address of your PI (just IP, no ports,...)
 
 ### **Bitfocus Companion: Custom Module Setup Guide (Companion Pi)**
 
-This repository includes a pre-built, custom Bitfocus Companion module designed specifically to control the Stage Timer Pro API.
+This repository includes a pre-built, custom Bitfocus Companion module designed specifically to control the CuePi API.
 
 If you are running the official Companion Pi image, the system handles custom developer modules using a pre-configured directory. Because the module is already compiled in this repository, installation takes just a few seconds.
 
@@ -158,28 +217,28 @@ You can download the module and move it to the developer folder in one action. T
 SSH into your Companion Pi and run this block:
 ```
 1. Download the repository to a temporary folder
-git clone https://github.com/ondrejvysek/stage-timer-pro.git /tmp/stage-timer-pro
+git clone https://github.com/ondrejvysek/cuepi.git /tmp/cuepi
 
 # 2. Create the developer directory and copy the pre-built files
-sudo mkdir -p /opt/companion-module-dev/stage-timer-pro
-sudo cp -r /tmp/stage-timer-pro/companion/stage-timer/* /opt/companion-module-dev/stage-timer-pro/
+sudo mkdir -p /opt/companion-module-dev/cuepi
+sudo cp -r /tmp/cuepi/companion/stage-timer/* /opt/companion-module-dev/cuepi/
 
 # 3. Navigate into the new module folder
-cd /opt/companion-module-dev/stage-timer-pro
+cd /opt/companion-module-dev/cuepi
 
 # 4. Install the required Companion Base module (It's safe to ignore Node version warnings)
 sudo npm install @companion-module/base@^1.14.1
 
 # 5. CRITICAL: Fix folder ownership so the Companion background service can read it
-sudo chown -R companion:companion /opt/companion-module-dev/stage-timer-pro
+sudo chown -R companion:companion /opt/companion-module-dev/cuepi
 
 # 6. Clean up the temporary files and restart Companion
-rm -rf /tmp/stage-timer-pro
+rm -rf /tmp/cuepi
 sudo systemctl restart companion
 ```
 
 Your file structure will now correctly look like this:
-/opt/companion-module-dev/stage-timer-pro/package.json (along with main.js, manifest.json, and HELP.md).
+/opt/companion-module-dev/cuepi/package.json (along with main.js, manifest.json, and HELP.md).
 
 ### Step 3: Restart Companion
 
@@ -191,10 +250,10 @@ Run the following command: `sudo systemctl restart companion`
 
 1. Open the Bitfocus Companion Web UI in your browser (e.g., http://<COMPANION_PI_IP>:8000).
 2. Go to the Connections tab.
-3. Under the Add Connection search bar, type Stage Timer Pro.
+3. Under the Add Connection search bar, type CuePi.
 4. You should see the custom module appear in the list.
 5. Click Add.
-6. In the configuration panel that appears, enter the IP address of your Stage Timer Pro Raspberry Pi. (If Companion is running on the exact same Pi as the timer, you can simply use 127.0.0.1 or localhost).
+6. In the configuration panel that appears, enter the IP address of your CuePi Raspberry Pi. (If Companion is running on the exact same Pi as the timer, you can simply use 127.0.0.1 or localhost).
 7. Click Save.
 
 ### Included Presets & Features
@@ -229,7 +288,7 @@ Reset the timer to specific preset durations instantly:
 
 #### 🌟 Smart Feedbacks (Dynamic Colors)
 
-The buttons on your Stream Deck are programmed to react to the live state of the Stage Timer:
+The buttons on your Stream Deck are programmed to react to the live state of the CuePi:
 
  - Green: The timer is actively running.
  - Yellow: Warning state (The timer has dropped below 2 minutes).

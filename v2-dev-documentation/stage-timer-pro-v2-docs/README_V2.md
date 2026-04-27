@@ -1,6 +1,6 @@
-# Stage Timer Pro v2.0
+# CuePi v2.0
 
-Stage Timer Pro v2.0 is the planned next major version of Stage Timer Pro. It moves the project from a single room Raspberry Pi timer into a resilient live event timing appliance with rundown control, local persistence, broadcast display modes, optional mesh discovery, and optional automation integrations.
+CuePi v2.0 is the planned next major version of CuePi. It moves the project from a single room Raspberry Pi timer into a resilient live event timing appliance with rundown control, local persistence, broadcast display modes, optional mesh discovery, and optional automation integrations.
 
 The current project is a compact Node.js and Socket.io application with a moderator UI, presenter kiosk, setup scripts, fallback access point behavior, and Companion integration. Version 2 keeps that direction, but introduces a cleaner architecture and a safer state model.
 
@@ -47,7 +47,7 @@ NDI input should be considered Raspberry Pi 5 only and experimental.
 ## Planned repository structure
 
 ```text
-stage-timer-pro/
+cuepi/
 ├── backend/
 │   ├── lib/
 │   │   ├── api-auth.js

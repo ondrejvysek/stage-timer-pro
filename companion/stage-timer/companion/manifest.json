@@ -1,8 +1,8 @@
 {
-  "id": "custom-stage-timer-pro",
-  "name": "Stage Timer Pro",
+  "id": "custom-cuepi",
+  "name": "CuePi",
   "shortname": "stagetimer",
-  "description": "Custom control module for the Stage Timer Pro API.",
+  "description": "Custom control module for the CuePi API.",
   "version": "1.0.0",
   "license": "MIT",
   "repository": "",
@@ -21,6 +21,6 @@
     "entrypoint": "../main.js"
   },
   "manufacturer": "Custom Studios",
-  "products": ["Stage Timer Pro"],
+  "products": ["CuePi"],
   "keywords": ["timer", "stage", "clock"]
 }

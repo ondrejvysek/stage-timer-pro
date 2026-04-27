@@ -2,7 +2,7 @@
 
 ## Security goal
 
-Stage Timer Pro usually runs on local event networks. Local does not mean trusted. Any device on the same network may be able to reach the Pi.
+CuePi usually runs on local event networks. Local does not mean trusted. Any device on the same network may be able to reach the Pi.
 
 The system must protect actions that can interrupt a show, change the device, or execute system commands.
 
