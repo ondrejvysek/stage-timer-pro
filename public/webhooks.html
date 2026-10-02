@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Webhook Configuration | Stage Timer Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="apple-touch-icon" href="/icon.svg">
+    <style>
+        :root {
+            --bg: #0f172a; --card: #1e293b; --border: #334155;
+            --text: #f8fafc; --text-dim: #94a3b8; --blue: #2563eb;
+            --green: #16a34a; --amber: #d97706; --red: #dc2626;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; gap: 15px; }
+        header h1 { font-size: 18px; margin: 0; }
+        .back-link { color: var(--text-dim); text-decoration: none; font-size: 13px; white-space: nowrap; }
+        .back-link:hover { color: var(--text); }
+
+        .intro { color: var(--text-dim); font-size: 13px; line-height: 1.5; margin-bottom: 25px; }
+
+        .hook-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+        .hook-card h2 { font-size: 14px; margin: 0 0 4px 0; }
+        .hook-card .event-key { font-family: monospace; font-size: 11px; color: var(--text-dim); margin: 0 0 15px 0; }
+
+        .row { display: flex; gap: 10px; }
+        .sys-input { flex: 1; background: #0f172a; border: 1px solid var(--border); color: #fff; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 13px; }
+        .sys-input:focus { outline: none; border-color: var(--blue); }
+        .btn { border: none; border-radius: 8px; cursor: pointer; font-weight: 700; padding: 0 18px; color: #fff; font-size: 13px; white-space: nowrap; }
+        .btn-save { background: var(--blue); }
+        .btn-test { background: #475569; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status-line { margin-top: 12px; font-size: 12px; display: flex; align-items: center; gap: 8px; min-height: 16px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .dot-idle { background: var(--border); }
+        .dot-ok { background: var(--green); }
+        .dot-fail { background: var(--red); }
+        .status-text { color: var(--text-dim); }
+        .feedback { font-size: 12px; margin-top: 8px; min-height: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Webhook Configuration</h1>
+            <a href="/" class="back-link">← Back to Control Panel</a>
+        </header>
+
+        <p class="intro">
+            Each event below can fire a plain HTTP <strong>GET</strong> request to a URL of your choice, letting an external
+            system react to what the timer is doing. Leave a field blank to disable that event. Requests time out after 5 seconds
+            and failures are logged but never retried, so a broken endpoint can't affect the timer itself.
+        </p>
+
+        <div id="hooks-container"></div>
+    </div>
+
+    <script>
+        const EVENTS = ['on_start', 'on_pause', 'on_zero', 'on_logo_enter', 'on_logo_exit'];
+        const FALLBACK_LABELS = {
+            on_start: 'Timer Start',
+            on_pause: 'Timer Pause',
+            on_zero: 'Timer Hits 00:00',
+            on_logo_enter: 'Switches To Logo Screen',
+            on_logo_exit: 'Switches Away From Logo Screen'
+        };
+
+        function timeAgo(ts) {
+            if (!ts) return 'Never fired';
+            const secs = Math.floor((Date.now() - ts) / 1000);
+            if (secs < 5) return 'Just now';
+            if (secs < 60) return `${secs}s ago`;
+            const mins = Math.floor(secs / 60);
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ago`;
+            return new Date(ts).toLocaleString();
+        }
+
+        function renderCard(event, data) {
+            const label = data.label || FALLBACK_LABELS[event];
+            const dotClass = data.lastFiredAt === null ? 'dot-idle' : (data.ok ? 'dot-ok' : 'dot-fail');
+            const statusText = data.lastFiredAt === null
+                ? 'Never fired'
+                : `${data.ok ? 'Succeeded' : 'Failed'} · ${timeAgo(data.lastFiredAt)}${data.error ? ' · ' + data.error : ''}`;
+
+            return `
+                <div class="hook-card" data-event="${event}">
+                    <h2>${label}</h2>
+                    <p class="event-key">${event}</p>
+                    <div class="row">
+                        <input type="text" class="sys-input" id="input-${event}" placeholder="https://example.com/hook" value="${data.url || ''}">
+                        <button class="btn btn-save" onclick="saveWebhook('${event}')">SAVE</button>
+                        <button class="btn btn-test" onclick="testWebhook('${event}')" ${data.url ? '' : 'disabled'} id="testbtn-${event}">TEST</button>
+                    </div>
+                    <div class="status-line">
+                        <span class="dot ${dotClass}" id="dot-${event}"></span>
+                        <span class="status-text" id="statustext-${event}">${statusText}</span>
+                    </div>
+                    <div class="feedback" id="feedback-${event}"></div>
+                </div>
+            `;
+        }
+
+        async function loadWebhooks() {
+            // Don't blow away an input the user is actively editing (e.g. mid-typing a URL)
+            const active = document.activeElement;
+            if (active && active.tagName === 'INPUT' && active.id.startsWith('input-')) return;
+
+            try {
+                const res = await fetch('/api/webhooks');
+                const hooks = await res.json();
+                const container = document.getElementById('hooks-container');
+                container.innerHTML = EVENTS.map(event => renderCard(event, hooks[event] || {})).join('');
+            } catch (e) {
+                document.getElementById('hooks-container').innerHTML =
+                    `<p style="color:var(--red);">Could not load webhook configuration: ${e.message}</p>`;
+            }
+        }
+
+        function showFeedback(event, message, isError) {
+            const el = document.getElementById(`feedback-${event}`);
+            el.style.color = isError ? 'var(--red)' : 'var(--green)';
+            el.innerText = message;
+            setTimeout(() => { el.innerText = ''; }, 4000);
+        }
+
+        async function saveWebhook(event) {
+            const input = document.getElementById(`input-${event}`);
+            try {
+                const res = await fetch(`/api/webhooks/set?event=${event}&url=${encodeURIComponent(input.value)}`);
+                const text = await res.text();
+                if (res.ok) {
+                    showFeedback(event, 'Saved.', false);
+                    document.getElementById(`testbtn-${event}`).disabled = !input.value;
+                } else {
+                    showFeedback(event, text, true);
+                }
+            } catch (e) {
+                showFeedback(event, 'Save failed: ' + e.message, true);
+            }
+        }
+
+        async function testWebhook(event) {
+            try {
+                const res = await fetch(`/api/webhooks/test?event=${event}`);
+                const text = await res.text();
+                showFeedback(event, text, !res.ok);
+                // Give the fire-and-forget request a moment to complete, then refresh its status dot
+                setTimeout(loadWebhooks, 1200);
+            } catch (e) {
+                showFeedback(event, 'Test failed: ' + e.message, true);
+            }
+        }
+
+        loadWebhooks();
+        // Keep status dots current if a webhook fires from real timer activity elsewhere
+        setInterval(loadWebhooks, 8000);
+    </script>
+</body>
+</html>

@@ -37,9 +37,11 @@ const netInfo = getNetworkInfo();
 // --- PERSISTENCE SETUP ---
 const messagesFile = path.join(__dirname, 'messages.json');
 const logoFile = path.join(__dirname, 'logo.json');
+const webhooksFile = path.join(__dirname, 'webhooks.json');
 
 let quickMessages = ['Wrap Up Now', 'Q&A Starting', '5 Minutes Left', 'Speak Up'];
 let logoData = "";
+let webhooks = { on_start: "", on_pause: "", on_zero: "", on_logo_enter: "", on_logo_exit: "" };
 
 // Load Messages
 try {
@@ -67,6 +69,52 @@ try {
     console.error("Could not load logo.json", e);
 }
 
+// Load Webhooks
+try {
+    if (fs.existsSync(webhooksFile)) {
+        const parsed = JSON.parse(fs.readFileSync(webhooksFile, 'utf8'));
+        webhooks = { ...webhooks, ...parsed };
+    } else {
+        fs.writeFileSync(webhooksFile, JSON.stringify(webhooks));
+    }
+} catch (e) {
+    console.error("Could not load webhooks.json", e);
+}
+
+function saveWebhooks() {
+    try { fs.writeFileSync(webhooksFile, JSON.stringify(webhooks)); }
+    catch (e) { console.error("Could not save webhooks.json", e); }
+}
+
+// In-memory only (not persisted): last-fired outcome per event, for the config page to display.
+const WEBHOOK_EVENTS = ['on_start', 'on_pause', 'on_zero', 'on_logo_enter', 'on_logo_exit'];
+let webhookStatus = {};
+WEBHOOK_EVENTS.forEach(e => webhookStatus[e] = { lastFiredAt: null, ok: null, error: null });
+
+// Fire-and-forget GET to a configured webhook URL for a given event.
+// Never throws, never blocks the caller, and logs failures instead of retrying,
+// so a slow or unreachable external system can never stall the timer.
+function fireWebhook(event) {
+    const url = webhooks[event];
+    if (!url) return;
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        fetch(url, { method: 'GET', signal: controller.signal })
+            .then(res => {
+                webhookStatus[event] = { lastFiredAt: Date.now(), ok: res.ok, error: res.ok ? null : `HTTP ${res.status}` };
+            })
+            .catch(err => {
+                webhookStatus[event] = { lastFiredAt: Date.now(), ok: false, error: err.message };
+                console.error(`Webhook [${event}] failed:`, err.message);
+            })
+            .finally(() => clearTimeout(timeout));
+    } catch (e) {
+        webhookStatus[event] = { lastFiredAt: Date.now(), ok: false, error: e.message };
+        console.error(`Webhook [${event}] error:`, e.message);
+    }
+}
+
 // --- APP STATE ---
 let state = {
     timeLeft: 600,
@@ -78,14 +126,49 @@ let state = {
     ip: netInfo.ip,
     netmask: netInfo.mask,
     logoData: logoData,
-    blink_state: false
+    blink_state: false,
+    holdAtZero: false,
+    autoLogoAtZero: false,
+    dissolveDelaySec: 5
 };
 
+// Centralizes every mode change so logo enter/exit webhooks fire consistently,
+// whether the switch was manual (/api/mode) or automatic (auto-dissolve at zero).
+function setMode(newMode) {
+    const oldMode = state.mode;
+    if (newMode === oldMode) return;
+    state.mode = newMode;
+    if (newMode === 'logo' && oldMode !== 'logo') fireWebhook('on_logo_enter');
+    if (oldMode === 'logo' && newMode !== 'logo') fireWebhook('on_logo_exit');
+}
+
 // --- GLOBAL TICK ENGINES ---
+let secondsPastZero = null; // null = not currently counting down toward the dissolve
+
 // Standard Timer Tick (1 Second)
 setInterval(() => {
     if (state.isRunning) {
-        if (state.mode === 'countdown') state.timeLeft--;
+        if (state.mode === 'countdown') {
+            const wasPositive = state.timeLeft > 0;
+            if (state.holdAtZero && state.timeLeft <= 0) {
+                state.timeLeft = 0; // clamp: stay at 00:00 instead of going negative
+            } else {
+                state.timeLeft--;
+            }
+
+            if (wasPositive && state.timeLeft <= 0) {
+                secondsPastZero = 0; // just crossed the zero boundary, start the delay clock
+                fireWebhook('on_zero');
+            } else if (secondsPastZero !== null) {
+                secondsPastZero++;
+            }
+
+            // Dissolve to the logo screen once the configured delay has elapsed
+            if (state.autoLogoAtZero && secondsPastZero !== null && secondsPastZero >= state.dissolveDelaySec) {
+                setMode('logo');
+                secondsPastZero = null;
+            }
+        }
         else if (state.mode === 'countup') state.timeLeft++;
         broadcast();
     }
@@ -127,18 +210,21 @@ app.get('/api/state', (req, res) => res.json(state));
 
 app.get('/api/start', (req, res) => {
     state.isRunning = true;
+    fireWebhook('on_start');
     broadcast();
     res.send('Started');
 });
 
 app.get('/api/pause', (req, res) => {
     state.isRunning = false;
+    fireWebhook('on_pause');
     broadcast();
     res.send('Paused');
 });
 
 app.get('/api/toggle_playback', (req, res) => {
     state.isRunning = !state.isRunning;
+    fireWebhook(state.isRunning ? 'on_start' : 'on_pause');
     broadcast();
     res.send(state.isRunning ? 'Started' : 'Paused');
 });
@@ -148,6 +234,7 @@ app.get('/api/reset', (req, res) => {
     state.isRunning = false;
     state.timeLeft = sec;
     state.initialTime = sec;
+    secondsPastZero = null;
     broadcast();
     res.send('Reset');
 });
@@ -161,7 +248,8 @@ app.get('/api/add', (req, res) => {
 app.get('/api/mode', (req, res) => {
     const validModes = ['countdown', 'countup', 'timeofday', 'logo'];
     if (validModes.includes(req.query.set)) {
-        state.mode = req.query.set;
+        setMode(req.query.set);
+        secondsPastZero = null;
         if (state.mode === 'countup') {
             state.timeLeft = 0;
             state.initialTime = 0;
@@ -171,6 +259,78 @@ app.get('/api/mode', (req, res) => {
     } else {
         res.status(400).send('Invalid Mode');
     }
+});
+
+app.get('/api/settings/hold_at_zero/toggle', (req, res) => {
+    state.holdAtZero = !state.holdAtZero;
+    broadcast();
+    res.send(state.holdAtZero ? 'Hold at Zero Enabled' : 'Hold at Zero Disabled');
+});
+
+app.get('/api/settings/auto_logo_at_zero/toggle', (req, res) => {
+    state.autoLogoAtZero = !state.autoLogoAtZero;
+    broadcast();
+    res.send(state.autoLogoAtZero ? 'Auto Logo at Zero Enabled' : 'Auto Logo at Zero Disabled');
+});
+
+app.get('/api/settings/dissolve_delay', (req, res) => {
+    const sec = parseInt(req.query.sec);
+    if (!isNaN(sec) && sec >= 0 && sec <= 3600) {
+        state.dissolveDelaySec = sec;
+        broadcast();
+        res.send('Dissolve Delay Updated');
+    } else {
+        res.status(400).send('Invalid Delay (0-3600 seconds)');
+    }
+});
+
+// --- WEBHOOKS ---
+const WEBHOOK_LABELS = {
+    on_start: 'Timer Start',
+    on_pause: 'Timer Pause',
+    on_zero: 'Timer Hits 00:00',
+    on_logo_enter: 'Switches To Logo Screen',
+    on_logo_exit: 'Switches Away From Logo Screen'
+};
+
+// Returns each event's URL, human label, and last-fired outcome, keyed by event name
+app.get('/api/webhooks', (req, res) => {
+    const combined = {};
+    WEBHOOK_EVENTS.forEach(event => {
+        combined[event] = {
+            label: WEBHOOK_LABELS[event],
+            url: webhooks[event] || "",
+            ...webhookStatus[event]
+        };
+    });
+    res.json(combined);
+});
+
+app.get('/api/webhooks/set', (req, res) => {
+    const event = req.query.event;
+    const url = req.query.url || "";
+    if (!WEBHOOK_EVENTS.includes(event)) {
+        return res.status(400).send('Invalid Event');
+    }
+    if (url && !/^https?:\/\//i.test(url)) {
+        return res.status(400).send('URL must start with http:// or https://');
+    }
+    webhooks[event] = url;
+    saveWebhooks();
+    res.json({ label: WEBHOOK_LABELS[event], url: webhooks[event], ...webhookStatus[event] });
+});
+
+// Fires the configured webhook for one event immediately, for testing from the UI
+app.get('/api/webhooks/test', (req, res) => {
+    const event = req.query.event;
+    if (!WEBHOOK_EVENTS.includes(event)) {
+        return res.status(400).send('Invalid Event');
+    }
+    if (!webhooks[event]) {
+        return res.status(400).send('No URL Configured For This Event');
+    }
+    fireWebhook(event);
+    res.send('Test Fired');
 });
 
 app.get('/api/message/toggle', (req, res) => {

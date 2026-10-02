@@ -158,6 +158,12 @@
                     <button onclick="updateFirmware()" class="sys-btn sys-btn-warn" style="flex: 1;">PULL FIRMWARE UPDATE (GIT)</button>
                 </div>
             </div>
+
+            <div class="sys-group">
+                <h3>Webhooks</h3>
+                <p style="font-size: 11px; color: var(--text-dim); margin-top: -10px; margin-bottom: 15px;">Trigger external systems when the timer starts, pauses, hits 00:00, or switches to/from the logo screen.</p>
+                <a href="/webhooks.html" class="sys-btn" style="display:block; text-align:center; text-decoration:none;">OPEN WEBHOOK CONFIGURATION →</a>
+            </div>
         </div>
     </div>
 
@@ -205,6 +211,14 @@
                         <button onclick="api('mode', '?set=countup')" class="btn-preset" id="mode-countup">Count-Up</button>
                         <button onclick="api('mode', '?set=timeofday')" class="btn-preset" id="mode-timeofday">Time of Day</button>
                         <button onclick="api('mode', '?set=logo')" class="btn-preset" id="mode-logo">Idle / Logo</button>
+                    </div>
+                    <button id="btn-hold-zero" onclick="api('settings/hold_at_zero/toggle')" class="btn btn-toggle btn-toggle-off">HOLD AT 00:00</button>
+                    <button id="btn-auto-logo-zero" onclick="api('settings/auto_logo_at_zero/toggle')" class="btn btn-toggle btn-toggle-off">DISSOLVE TO LOGO AT 00:00</button>
+                    <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                        <label for="dissolve-delay-input" style="font-size:12px; color:var(--text-dim); white-space:nowrap;">Delay before dissolve (sec)</label>
+                        <input id="dissolve-delay-input" type="number" min="0" max="3600" step="1"
+                               class="sys-input" style="width:80px;"
+                               onchange="setDissolveDelay()">
                     </div>
                 </section>
 
@@ -339,12 +353,21 @@
 
         function updateMsgText(){ fetch(`/api/message/set?text=${encodeURIComponent(document.getElementById('minput').value)}`); }
         function setCustomTime() { const mins = document.getElementById('custom-min').value; if (mins) api('reset', parseInt(mins) * 60); }
+
+        function setDissolveDelay() {
+            const val = document.getElementById('dissolve-delay-input').value;
+            if (val !== "") api('settings/dissolve_delay', '?sec=' + parseInt(val));
+        }
         function addQuickMessage() {
             const text = document.getElementById('minput').value.trim();
             if(text) { fetch(`/api/messages/add?text=${encodeURIComponent(text)}`); document.getElementById('minput').value = ''; }
         }
 
-        function openSettings() { document.getElementById('settings-modal').classList.add('active'); checkAPStatus(); }
+        function openSettings() {
+            document.getElementById('settings-modal').classList.add('active');
+            checkAPStatus();
+        }
+
         function closeSettings() { document.getElementById('settings-modal').classList.remove('active'); }
         function confirmRestart() { fetch('/api/system/restart'); document.getElementById('restart-modal').classList.remove('active'); setTimeout(() => { window.location.reload(); }, 4000); }
         
@@ -489,6 +512,21 @@
             
             if(s.showMessage) { badge.innerText = "LIVE ON STAGE"; badge.className = "msg-status-badge status-live"; toggleBtn.innerText = "HIDE MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-on"; } 
             else { badge.innerText = "OFF AIR"; badge.className = "msg-status-badge status-off"; toggleBtn.innerText = "SHOW MESSAGE"; toggleBtn.className = "btn btn-toggle btn-toggle-off"; }
+
+            const holdZeroBtn = document.getElementById('btn-hold-zero');
+            if (holdZeroBtn) {
+                holdZeroBtn.className = s.holdAtZero ? "btn btn-toggle btn-toggle-on" : "btn btn-toggle btn-toggle-off";
+            }
+
+            const autoLogoBtn = document.getElementById('btn-auto-logo-zero');
+            if (autoLogoBtn) {
+                autoLogoBtn.className = s.autoLogoAtZero ? "btn btn-toggle btn-toggle-on" : "btn btn-toggle btn-toggle-off";
+            }
+
+            const dissolveDelayInput = document.getElementById('dissolve-delay-input');
+            if (dissolveDelayInput && document.activeElement !== dissolveDelayInput) {
+                dissolveDelayInput.value = s.dissolveDelaySec;
+            }
 
             document.getElementById('b-start').classList.toggle('hidden', s.isRunning);
             document.getElementById('b-pause').classList.toggle('hidden', !s.isRunning);

@@ -33,7 +33,8 @@
             box-sizing: border-box;
         }
 
-        #clock-container { width: 100%; display: flex; justify-content: center; align-items: center; }
+        #clock-container { width: 100%; display: flex; justify-content: center; align-items: center; opacity: 1; transition: opacity 1.2s ease; }
+        #logo-display { opacity: 0; transition: opacity 1.2s ease; }
 
         /* The font-family here adds system-level monospace fallbacks so it stays smooth offline! */
         #clock { 
@@ -81,7 +82,7 @@
 <body>
     <div id="ip-overlay">Connecting...</div>
 
-    <img id="logo-display" src="" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 85vw; max-height: 85vh; object-fit: contain; display: none;">
+    <img id="logo-display" src="" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 100vw; max-height: 100vh; object-fit: contain;">
 
     <div id="clock-container"><div id="clock">10:00</div></div>
     
@@ -117,8 +118,9 @@
             document.body.className = '';
 
             if (state.mode === 'timeofday') {
-                logoDisplay.style.display = 'none';
-                document.getElementById('clock-container').style.display = 'flex';
+                logoDisplay.style.opacity = '0';
+                logoDisplay.style.pointerEvents = 'none';
+                document.getElementById('clock-container').style.opacity = '1';
                 if (!localTimeInterval) {
                     localTimeInterval = setInterval(() => {
                         if(currentMode === 'timeofday') {
@@ -137,11 +139,13 @@
                     if (logoDisplay.getAttribute('src') !== state.logoData) {
                         logoDisplay.setAttribute('src', state.logoData);
                     }
-                    logoDisplay.style.display = 'block';
-                    document.getElementById('clock-container').style.display = 'none';
+                    logoDisplay.style.opacity = '1';
+                    logoDisplay.style.pointerEvents = 'auto';
+                    document.getElementById('clock-container').style.opacity = '0';
                 } else {
-                    logoDisplay.style.display = 'none';
-                    document.getElementById('clock-container').style.display = 'flex';
+                    logoDisplay.style.opacity = '0';
+                    logoDisplay.style.pointerEvents = 'none';
+                    document.getElementById('clock-container').style.opacity = '1';
                     clock.innerText = "EVENT LOGO";
                     clock.style.fontSize = "12vw";
                     clock.style.opacity = "0.5";
@@ -149,8 +153,9 @@
                 document.getElementById('progress-container').style.display = 'none';
 
             } else {
-                logoDisplay.style.display = 'none';
-                document.getElementById('clock-container').style.display = 'flex';
+                logoDisplay.style.opacity = '0';
+                logoDisplay.style.pointerEvents = 'none';
+                document.getElementById('clock-container').style.opacity = '1';
                 document.getElementById('progress-container').style.display = 'block';
                 const absTime = Math.abs(state.timeLeft);
                 const mins = Math.floor(absTime / 60);
